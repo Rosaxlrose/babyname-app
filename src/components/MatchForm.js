@@ -247,7 +247,7 @@ const MatchForm = () => {
 
         if (newMatchedNames.length > 0) {
             Swal.fire({
-                title: `🎉 พบชื่อ ${newMatchedNames.length} ชื่อที่แนะนำ${isRetry ? 'ใหม่' : ''}`,
+                title: `🎉 พบ ${newMatchedNames.length} ชื่อที่แนะนำ${isRetry ? 'ใหม่' : ''}`,
                 text: newMatchedNames.map(name => name.name).join(', '),
                 icon: 'success',
                 confirmButtonText: 'ตกลง',
@@ -360,7 +360,7 @@ const MatchForm = () => {
     
   return (
     <div className="match-form-container">
-            <div className="glass-container max-w-4xl mx-auto w-[95%]">
+           <div className="glass-container max-w-full lg:max-w-4xl mx-auto w-[95%]">
         <div className="glass-container">
             <h2 className="form-title">
             <span className="star">🔎</span>แมชชื่อที่เหมาะสม 
