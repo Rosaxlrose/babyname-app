@@ -74,7 +74,9 @@ const MatchForm = () => {
         if (e) e.preventDefault();
         setIsLoading(true);
         let parentTags = new Set(); 
-        let missingParentName = null; 
+        let missingParentName = null;
+        let missingNameValue = '';
+        
         try {
             if (formData.fatherName) {
                 const { data: fatherData, error: fatherError } = await supabase
@@ -84,6 +86,7 @@ const MatchForm = () => {
                     .single();
                 if (fatherError) {
                     missingParentName = 'ชื่อพ่อ';
+                    missingNameValue = formData.fatherName;
                 } else if (fatherData) {
                     fatherData.tags.forEach(tag => parentTags.add(tag));
                 }
@@ -96,13 +99,120 @@ const MatchForm = () => {
                     .single();
                 if (motherError) {
                     missingParentName = missingParentName ? `${missingParentName}และชื่อแม่` : 'ชื่อแม่';
+                    missingNameValue = formData.motherName;
                 } else if (motherData) {
                     motherData.tags.forEach(tag => parentTags.add(tag));
                 }
             }
             if (missingParentName) {
-                throw new Error(`ไม่พบ${missingParentName}ในระบบ`);
+                const result = await Swal.fire({
+                    title: `⚠️ ไม่พบ${missingParentName}ในระบบ`,
+                    text: 'กรุณาเพิ่มข้อมูลเพื่อช่วยเราพัฒนาระบบ',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'เพิ่มข้อมูล',
+                    cancelButtonText: 'ยกเลิก',
+                    customClass: {
+                        popup: 'glass-container',
+                        confirmButton: 'btn btn-primary',
+                        cancelButton: 'btn btn-secondary'
+                    }
+                });
+
+                if (result.isConfirmed) {
+                    const { value: formValues } = await Swal.fire({
+                        title: '📝 เพิ่มข้อมูลชื่อ',
+                        html: `
+                            <form id="addNameForm" class="space-y-4">
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">ชื่อ</label>
+                                    <input type="text" id="name" class="form-input w-full" value="${missingNameValue}" required>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">ความหมาย</label>
+                                    <textarea id="meaning" class="form-input w-full" rows="3" required></textarea>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">เพศ</label>
+                                    <select id="gender" class="form-input w-full" required>
+                                        <option value="ชาย">ชาย</option>
+                                        <option value="หญิง">หญิง</option>
+                                        <option value="ใช้ได้กับทั้งสอง">ใช้ได้กับทั้งสอง</option>
+                                    </select>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">แท็ก (คั่นด้วยเครื่องหมาย ,)</label>
+                                    <input type="text" id="tags" class="form-input w-full" placeholder="เช่น มงคล, ความสุข, ความสำเร็จ" required>
+                                </div>
+                            </form>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'บันทึก',
+                        cancelButtonText: 'ยกเลิก',
+                        customClass: {
+                            popup: 'glass-container',
+                            confirmButton: 'btn btn-primary',
+                            cancelButton: 'btn btn-secondary'
+                        },
+                        preConfirm: () => {
+                            const form = document.getElementById('addNameForm');
+                            const name = document.getElementById('name').value;
+                            const meaning = document.getElementById('meaning').value;
+                            const gender = document.getElementById('gender').value;
+                            const tags = document.getElementById('tags').value;
+                            
+                            if (!name || !meaning || !gender || !tags) {
+                                Swal.showValidationMessage('⚠️ กรุณากรอกข้อมูลให้ครบถ้วน');
+                                return false;
+                            }
+                            
+                            return {
+                                name,
+                                meaning,
+                                gender,
+                                tags: tags.split(',').map(tag => tag.trim())
+                            };
+                        }
+                    });
+
+                    if (formValues) {
+                        try {
+                            const { data, error } = await supabase
+                                .from('names')
+                                .insert([formValues]);
+
+                            if (error) throw error;
+
+                            await Swal.fire({
+                                title: '✅ เพิ่มชื่อสำเร็จ',
+                                text: 'ชื่อถูกเพิ่มเข้าฐานข้อมูลแล้ว',
+                                icon: 'success',
+                                confirmButtonText: 'ค้นหาชื่ออีกครั้ง',
+                                customClass: {
+                                    popup: 'glass-container',
+                                    confirmButton: 'btn btn-primary'
+                                }
+                            });
+
+                            handleSubmit(null, true);
+                        } catch (error) {
+                            console.error('Error:', error);
+                            Swal.fire({
+                                title: '❌ เกิดข้อผิดพลาด',
+                                text: 'ไม่สามารถเพิ่มชื่อได้ กรุณาลองใหม่อีกครั้ง',
+                                icon: 'error',
+                                confirmButtonText: 'ตกลง',
+                                customClass: {
+                                    popup: 'glass-container',
+                                    confirmButton: 'btn btn-primary'
+                                }
+                            });
+                        }
+                    }
+                }
+                return;
             }
+    
 
             let query = supabase
                 .from('names')
@@ -137,26 +247,38 @@ const MatchForm = () => {
 
         if (newMatchedNames.length > 0) {
             Swal.fire({
-                icon: 'success',
-                title: `พบชื่อ ${newMatchedNames.length} ชื่อที่แนะนำ${isRetry ? 'ใหม่' : ''}`,
+                title: `🎉 พบชื่อ ${newMatchedNames.length} ชื่อที่แนะนำ${isRetry ? 'ใหม่' : ''}`,
                 text: newMatchedNames.map(name => name.name).join(', '),
-                confirmButtonText: 'ตกลง'
+                icon: 'success',
+                confirmButtonText: 'ตกลง',
+                customClass: {
+                    popup: 'glass-container',
+                    confirmButton: 'btn btn-primary'
+                }
             });
         } else {
             Swal.fire({
-                icon: 'info',
-                title: 'ไม่พบชื่อที่แนะนำเพิ่มเติม',
+                title: '📝 ไม่พบชื่อที่แนะนำเพิ่มเติม',
                 text: 'ลองปรับเปลี่ยนความชอบหรือเงื่อนไขใหม่',
-                confirmButtonText: 'ตกลง'
+                icon: 'info',
+                confirmButtonText: 'ตกลง',
+                customClass: {
+                    popup: 'glass-container',
+                    confirmButton: 'btn btn-primary'
+                }
             });
         }
     } catch (error) {
         console.error('Error:', error);
         Swal.fire({
-            icon: 'error',
-            title: 'เกิดข้อผิดพลาด',
+            title: '❌ เกิดข้อผิดพลาด',
             text: error.message || 'ไม่สามารถค้นหาชื่อได้ กรุณาลองใหม่อีกครั้ง',
-            confirmButtonText: 'ตกลง'
+            icon: 'error',
+            confirmButtonText: 'ตกลง',
+            customClass: {
+                popup: 'glass-container',
+                confirmButton: 'btn btn-primary'
+            }
         });
     } finally {
         setIsLoading(false);
@@ -192,17 +314,20 @@ const MatchForm = () => {
     };
     const handleNameClick = (name) => {
         Swal.fire({
-            title: name.name,
+            title: `👤 ${name.name}`,
             html: `
                 <div class="text-left">
                     <p><strong>ความหมาย:</strong> ${name.meaning}</p>
                     <p><strong>แท็ก:</strong> ${name.tags.join(', ')}</p>
-                    <p><strong>เพศ:</strong> ${name.gender}</p>
-                    ${name.score ? `<p><strong>คะแนนความเหมาะสม:</strong> ${name.score}</p>` : ''}
+                    <p><strong>เพศ:</strong> ${name.gender === 'หญิง' ? '👧' : name.gender === 'ชาย' ? '👦' : '🌟'} ${name.gender}</p>
+                    ${name.score ? `<p><strong>คะแนนความเหมาะสม:</strong> ⭐ ${name.score}</p>` : ''}
                 </div>
             `,
-            icon: 'info',
-            confirmButtonText: 'ปิด'
+            confirmButtonText: 'ปิด',
+            customClass: {
+                popup: 'glass-container',
+                confirmButton: 'btn btn-primary'
+            }
         });
     };
     const clearForm = () => {
@@ -235,6 +360,7 @@ const MatchForm = () => {
     
   return (
     <div className="match-form-container">
+            <div className="glass-container max-w-4xl mx-auto w-[95%]">
         <div className="glass-container">
             <h2 className="form-title">
             <span className="star">🔎</span>แมชชื่อที่เหมาะสม 
@@ -431,6 +557,7 @@ const MatchForm = () => {
                 )}
             </div>
         </div>
+    </div>
     );
 };
 

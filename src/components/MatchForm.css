@@ -53,12 +53,13 @@ body {
     backdrop-filter: blur(10px);
     border-radius: 24px;
     border: 1px solid rgba(255, 255, 255, 0.2);
-    padding: 2rem;
+    padding: 1rem;
     max-width: 1200px;
     margin: 0 auto;
     position: relative;
     z-index: 1;
   }
+
   
   .form-title {
     font-size: 2rem;
@@ -137,9 +138,10 @@ body {
   
   .results-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1.5rem;
     margin-top: 2rem;
+    justify-items: center;
   }
   
   .name-card {
@@ -148,6 +150,8 @@ body {
     padding: 1.5rem;
     transition: all 0.3s ease;
     border: 1px solid var(--primary-light);
+    width: 100%;
+    max-width: 400px;
   }
   
   .name-card:hover {
@@ -224,3 +228,51 @@ body {
       transform: rotate(360deg);
     }
   }
+
+  .swal2-popup.glass-container {
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 24px !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    padding: 2rem !important;
+}
+
+.swal2-popup .form-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--primary-light);
+    border-radius: 12px;
+    background: white;
+    transition: all 0.3s ease;
+    margin-top: 0.5rem;
+}
+
+.swal2-popup .form-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+    .glass-container {
+        padding: 1.5rem !important;
+        width: 95% !important;
+    }
+    
+    .results-grid {
+        grid-template-columns: 1fr !important;
+        padding: 0.5rem;
+    }
+    
+    .form-input, .btn {
+        width: 100% !important;
+    }
+}
+.swal2-popup .swal2-icon.swal2-success .swal2-success-circular-line-left,
+.swal2-popup .swal2-icon.swal2-success .swal2-success-circular-line-right {
+    display: none !important; 
+}
+.swal2-popup .swal2-icon.swal2-success .swal2-success-fix {
+    display: none !important; 
+}
