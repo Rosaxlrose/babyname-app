@@ -256,7 +256,7 @@ body {
 /* Responsive adjustments */
 @media (max-width: 640px) {
     .glass-container {
-        padding: 1.5rem !important;
+        padding: 1rem !important;
         width: 95% !important;
     }
     
