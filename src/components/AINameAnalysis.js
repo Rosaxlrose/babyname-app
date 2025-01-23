@@ -100,74 +100,79 @@ const AINameAnalysis = () => {
         switch (analysisType) {
             case 'recommend':
                 return (
-                    <>
-                        <div className="mb-4">
-                            <label className="block mb-2">ความหมายที่ต้องการ</label>
-                            <input
-                                type="text"
-                                name="desiredMeaning"
-                                value={formData.desiredMeaning}
-                                onChange={handleInputChange}
-                                className="w-full p-2 border rounded"
-                                required
-                            />
-                        </div>
-                        <div className="mb-4">
-                            <label className="block mb-2">ลักษณะที่ต้องการ (คั่นด้วยเครื่องหมาย ,)</label>
-                            <input
-                                type="text"
-                                name="characteristics"
-                                value={formData.characteristics.join(', ')}
-                                onChange={handleCharacteristicsChange}
-                                className="w-full p-2 border rounded"
-                                placeholder="เช่น ฉลาด, มีความสุข, มีเมตตา"
-                            />
-                        </div>
-                    </>
+                    <div className="match-form-container">
+                        <form onSubmit={handleSubmit} className="glass-container">
+                            <h2>การวิเคราะห์ชื่อ</h2>
+                            <div>
+                                <label>ความหมายที่ต้องการ:</label>
+                                <input type="text" name="desiredMeaning" value={formData.desiredMeaning} onChange={handleInputChange} required />
+                            </div>
+                            <div>
+                                <label>ลักษณะ:</label>
+                                <input type="text" name="characteristics" value={formData.characteristics.join(', ')} onChange={handleCharacteristicsChange} />
+                            </div>
+                            <div>
+                                <label>เพศ:</label>
+                                <select name="gender" value={formData.gender} onChange={handleInputChange}>
+                                    <option value="">เลือกเพศ</option>
+                                    <option value="ชาย">ชาย</option>
+                                    <option value="หญิง">หญิง</option>
+                                </select>
+                            </div>
+                            <button type="submit" disabled={isLoading}>{isLoading ? 'กำลังโหลด...' : 'วิเคราะห์ชื่อ'}</button>
+                        </form>
+                    </div>
                 );
 
             case 'analyze':
                 return (
-                    <div className="mb-4">
-                        <label className="block mb-2">ชื่อที่ต้องการวิเคราะห์</label>
-                        <input
-                            type="text"
-                            name="name"
-                            value={formData.name}
-                            onChange={handleInputChange}
-                            className="w-full p-2 border rounded"
-                            required
-                        />
+                    <div className="match-form-container">
+                        <form onSubmit={handleSubmit} className="glass-container">
+                            <h2>การวิเคราะห์ชื่อ</h2>
+                            <div>
+                                <label>ชื่อ:</label>
+                                <input type="text" name="name" value={formData.name} onChange={handleInputChange} required />
+                            </div>
+                            <div>
+                                <label>เพศ:</label>
+                                <select name="gender" value={formData.gender} onChange={handleInputChange}>
+                                    <option value="">เลือกเพศ</option>
+                                    <option value="ชาย">ชาย</option>
+                                    <option value="หญิง">หญิง</option>
+                                </select>
+                            </div>
+                            <button type="submit" disabled={isLoading}>{isLoading ? 'กำลังโหลด...' : 'วิเคราะห์ชื่อ'}</button>
+                        </form>
                     </div>
                 );
 
             case 'match':
                 return (
-                    <>
-                        <div className="mb-4">
-                            <label className="block mb-2">ชื่อที่ต้องการจับคู่</label>
-                            <input
-                                type="text"
-                                name="name"
-                                value={formData.name}
-                                onChange={handleInputChange}
-                                className="w-full p-2 border rounded"
-                                required
-                            />
-                        </div>
-                        <div className="mb-4">
-                            <label className="block mb-2">ประเภทการจับคู่</label>
-                            <select
-                                name="matchType"
-                                value={formData.matchType}
-                                onChange={handleInputChange}
-                                className="w-full p-2 border rounded"
-                            >
-                                <option value="twins">ฝาแฝด</option>
-                                <option value="siblings">พี่น้อง</option>
-                            </select>
-                        </div>
-                    </>
+                    <div className="match-form-container">
+                        <form onSubmit={handleSubmit} className="glass-container">
+                            <h2>การวิเคราะห์ชื่อ</h2>
+                            <div>
+                                <label>ชื่อ:</label>
+                                <input type="text" name="name" value={formData.name} onChange={handleInputChange} required />
+                            </div>
+                            <div>
+                                <label>ประเภทการจับคู่:</label>
+                                <select name="matchType" value={formData.matchType} onChange={handleInputChange}>
+                                    <option value="twins">ฝาแฝด</option>
+                                    <option value="siblings">พี่น้อง</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>เพศ:</label>
+                                <select name="gender" value={formData.gender} onChange={handleInputChange}>
+                                    <option value="">เลือกเพศ</option>
+                                    <option value="ชาย">ชาย</option>
+                                    <option value="หญิง">หญิง</option>
+                                </select>
+                            </div>
+                            <button type="submit" disabled={isLoading}>{isLoading ? 'กำลังโหลด...' : 'วิเคราะห์ชื่อ'}</button>
+                        </form>
+                    </div>
                 );
 
             default:
@@ -179,7 +184,7 @@ const AINameAnalysis = () => {
         if (!results || results.length === 0) return null;
 
         return (
-            <div className="mt-6">
+            <div className="results-container">
                 <h3 className="text-xl font-bold mb-4">ผลลัพธ์</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {results.map((result, index) => (
@@ -252,33 +257,7 @@ const AINameAnalysis = () => {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                {renderForm()}
-                
-                <div className="mb-4">
-                    <label className="block mb-2">เพศ</label>
-                    <select
-                        name="gender"
-                        value={formData.gender}
-                        onChange={handleInputChange}
-                        className="w-full p-2 border rounded"
-                        required
-                    >
-                        <option value="">เลือกเพศ</option>
-                        <option value="ชาย">ชาย</option>
-                        <option value="หญิง">หญิง</option>
-                    </select>
-                </div>
-
-                <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
-                >
-                    {isLoading ? 'กำลังประมวลผล...' : 'ค้นหา'}
-                </button>
-            </form>
-
+            {renderForm()}
             {renderResults()}
         </div>
     );

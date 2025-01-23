@@ -14,6 +14,7 @@ const MatchForm = () => {
     const [matchedNames, setMatchedNames] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showAddNameForm, setShowAddNameForm] = useState(false);
+    const [previouslyShownNames, setPreviouslyShownNames] = useState(new Set());
     const [nameToAdd, setNameToAdd] = useState({
         name: '',
         meaning: '',
@@ -72,69 +73,37 @@ const MatchForm = () => {
     const handleSubmit = async (e, isRetry = false) => {
         if (e) e.preventDefault();
         setIsLoading(true);
-        setMatchedNames([]);
         let parentTags = new Set(); 
         let missingParentName = null; 
         try {
-            if (!formData.fatherName && !formData.motherName && !formData.preferences) {
-                throw new Error('กรุณากรอกชื่อพ่อ หรือชื่อแม่ หรือความชอบอย่างน้อย 1 อย่าง');
-            }
             if (formData.fatherName) {
                 const { data: fatherData, error: fatherError } = await supabase
                     .from('names')
-                    .select('*')
+                    .select('tags')
                     .eq('name', formData.fatherName)
                     .single();
                 if (fatherError) {
-                    if (!isRetry) {
-                        setNameToAdd({
-                            name: formData.fatherName,
-                            meaning: '',
-                            gender: 'ชาย',
-                            tags: ''
-                        });
-                        setShowAddNameForm(true);
-                        Swal.fire({
-                            icon: 'info',
-                            title: 'ไม่พบชื่อในฐานข้อมูล',
-                            text: 'กรุณาช่วยเราเพิ่มข้อมูลชื่อนี้เพื่อให้ระบบฉลาดขึ้น',
-                            confirmButtonText: 'เพิ่มข้อมูล'
-                        });
-                        return;
-                    }
-                    missingParentName = 'father';
-                } else {
+                    missingParentName = 'ชื่อพ่อ';
+                } else if (fatherData) {
                     fatherData.tags.forEach(tag => parentTags.add(tag));
                 }
             }
             if (formData.motherName) {
                 const { data: motherData, error: motherError } = await supabase
                     .from('names')
-                    .select('*')
+                    .select('tags')
                     .eq('name', formData.motherName)
                     .single();
                 if (motherError) {
-                    if (!isRetry) {
-                        setNameToAdd({
-                            name: formData.motherName,
-                            meaning: '',
-                            gender: 'หญิง',
-                            tags: ''
-                        });
-                        setShowAddNameForm(true);
-                        Swal.fire({
-                            icon: 'info',
-                            title: 'ไม่พบชื่อในฐานข้อมูล',
-                            text: 'กรุณาช่วยเราเพิ่มข้อมูลชื่อนี้เพื่อให้ระบบฉลาดขึ้น',
-                            confirmButtonText: 'เพิ่มข้อมูล'
-                        });
-                        return;
-                    }
-                    missingParentName = 'mother';
-                } else {
+                    missingParentName = missingParentName ? `${missingParentName}และชื่อแม่` : 'ชื่อแม่';
+                } else if (motherData) {
                     motherData.tags.forEach(tag => parentTags.add(tag));
                 }
             }
+            if (missingParentName) {
+                throw new Error(`ไม่พบ${missingParentName}ในระบบ`);
+            }
+
             let query = supabase
                 .from('names')
                 .select('*');
@@ -146,64 +115,53 @@ const MatchForm = () => {
             if (!names || names.length === 0) {
                 throw new Error('ไม่พบข้อมูลชื่อในระบบ');
             }
-            const matchedNames = analyzePreferences(formData.preferences, names, parentTags);
-            const filteredNames = matchedNames.filter(name =>
-                name.name !== formData.fatherName && name.name !== formData.motherName
-            ).slice(0, 5);
-            setMatchedNames(filteredNames);
-            setShowTryAgain(filteredNames.length > 0);
-            if (filteredNames.length > 0) {
-                Swal.fire({
-                    icon: 'success',
-                    title: `พบชื่อ ${filteredNames.length} ชื่อที่แนะนำ`,
-                    text: filteredNames.map(name => name.name).join(', '),
-                    showCancelButton: true,
-                    confirmButtonText: 'ลองอีกครั้ง',
-                    cancelButtonText: 'ตกลง'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        const newFilteredNames = matchedNames.filter(name =>
-                            !filteredNames.includes(name.name) &&
-                            name.name !== formData.fatherName && name.name !== formData.motherName
-                        ).slice(0, 5);
-                        if (newFilteredNames.length > 0) {
-                            setMatchedNames(newFilteredNames);
-                            Swal.fire({
-                                icon: 'success',
-                                title: `พบชื่อ ${newFilteredNames.length} ชื่อที่แนะนำใหม่`,
-                                text: newFilteredNames.map(name => name.name).join(', '),
-                                confirmButtonText: 'ตกลง'
-                            });
-                        } else {
-                            Swal.fire({
-                                icon: 'info',
-                                title: 'ไม่มีชื่อที่เหมาะแล้ว',
-                                text: 'ลองค้นหาความชอบใหม่',
-                                confirmButtonText: 'ตกลง'
-                            });
-                        }
-                    }
-                });
-            } else {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'ไม่พบชื่อที่แนะนำ',
-                    text: 'ลองค้นหาความชอบใหม่',
-                    confirmButtonText: 'ตกลง'
-                });
-            }
-        } catch (error) {
-            console.error('Error:', error);
+
+        // เรียกใช้ analyzePreferences เพื่อได้ชื่อทั้งหมดที่ match
+        const allMatchedNames = analyzePreferences(formData.preferences, names, parentTags);
+            
+        // กรองชื่อที่เคยแสดงแล้วออก
+        const newMatchedNames = allMatchedNames.filter(name => 
+            !previouslyShownNames.has(name.name) &&
+            name.name !== formData.fatherName && 
+            name.name !== formData.motherName
+        ).slice(0, 5);
+
+        // เพิ่มชื่อใหม่ที่จะแสดงเข้าไปใน Set ของชื่อที่เคยแสดงแล้ว
+        newMatchedNames.forEach(name => {
+            previouslyShownNames.add(name.name);
+        });
+        setPreviouslyShownNames(new Set(previouslyShownNames));
+
+        setMatchedNames(newMatchedNames);
+        setShowTryAgain(allMatchedNames.length > newMatchedNames.length);
+
+        if (newMatchedNames.length > 0) {
             Swal.fire({
-                icon: 'error',
-                title: 'เกิดข้อผิดพลาด',
-                text: error.message || 'ไม่สามารถค้นหาชื่อได้ กรุณาลองใหม่อีกครั้ง',
+                icon: 'success',
+                title: `พบชื่อ ${newMatchedNames.length} ชื่อที่แนะนำ${isRetry ? 'ใหม่' : ''}`,
+                text: newMatchedNames.map(name => name.name).join(', '),
                 confirmButtonText: 'ตกลง'
             });
-        } finally {
-            setIsLoading(false);
+        } else {
+            Swal.fire({
+                icon: 'info',
+                title: 'ไม่พบชื่อที่แนะนำเพิ่มเติม',
+                text: 'ลองปรับเปลี่ยนความชอบหรือเงื่อนไขใหม่',
+                confirmButtonText: 'ตกลง'
+            });
         }
-    };
+    } catch (error) {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'เกิดข้อผิดพลาด',
+            text: error.message || 'ไม่สามารถค้นหาชื่อได้ กรุณาลองใหม่อีกครั้ง',
+            confirmButtonText: 'ตกลง'
+        });
+    } finally {
+        setIsLoading(false);
+    }
+};
     const analyzePreferences = (preferences, names, parentTags) => {
         const prefs = preferences.toLowerCase().split(',').map(p => p.trim());
         const scoredNames = names.map(name => {
@@ -279,7 +237,7 @@ const MatchForm = () => {
     <div className="match-form-container">
         <div className="glass-container">
             <h2 className="form-title">
-            <span className="star">⭐</span>ค้นหาชื่อที่เหมาะสม 
+            <span className="star">🔎</span>แมชชื่อที่เหมาะสม 
             </h2>
             
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -406,6 +364,7 @@ const MatchForm = () => {
                             >
                                 <option value="ชาย">ชาย</option>
                                 <option value="หญิง">หญิง</option>
+                                <option value="ใช้ได้กับทั้งสอง">ใช้ได้กับทั้งสอง</option>
                             </select>
                         </div>
                         <div className="input-group">
@@ -445,10 +404,13 @@ const MatchForm = () => {
                                 onClick={() => handleNameClick(name)}
                                 className="name-card"
                             >
-                                <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
-                                    <FontAwesomeIcon icon={faHeart} className="text-pink-500" />
-                                    {name.name}
-                                </h3>
+                               <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
+  <span className="star">
+    {name.gender === 'หญิง' ? '👧' : name.gender === 'ชาย' ? '👦' : '🌟'}
+  </span>
+  {name.name}
+</h3>
+
                                 <p className="text-gray-600">{name.meaning}</p>
                                 <div className="mt-2">
                                     {name.tags.map((tag, index) => (

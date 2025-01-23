@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
 import MatchForm from './components/MatchForm';
-import RandomNames from './components/RandomNames';
+import NameList from './components/์NameList';
 import AddNameForm from './components/AddNameForm';
 import AINameAnalysis from './components/AINameAnalysis';
 import { Menu, X } from 'lucide-react';
@@ -12,7 +12,7 @@ function App() {
 
   const navLinks = [
     { to: "/", text: "หน้าหลัก" },
-    { to: "/random", text: "สุ่มชื่อ" },
+    { to: "/list", text: "รายชื่อ" },
     { to: "/add", text: "เพิ่มชื่อใหม่" },
     { to: "/ai-analysis", text: "AI วิเคราะห์ชื่อ" }
   ];
@@ -73,7 +73,7 @@ function App() {
         <div className="container mx-auto py-8 px-4 mt-16">
           <Routes>
             <Route path="/" element={<MatchForm />} />
-            <Route path="/random" element={<RandomNames />} />
+            <Route path="/list" element={<NameList />} />
             <Route path="/add" element={<AddNameForm />} />
             <Route path="/ai-analysis" element={<AINameAnalysis />} />
           </Routes>

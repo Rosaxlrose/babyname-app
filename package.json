@@ -10,6 +10,7 @@
     "@tensorflow/tfjs-vis": "^1.5.1",
     "autoprefixer": "^10.4.20",
     "cra-template": "1.2.0",
+    "fuse.js": "^7.0.0",
     "lucide-react": "^0.473.0",
     "postcss": "^8.5.1",
     "react": "^19.0.0",

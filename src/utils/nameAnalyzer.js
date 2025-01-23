@@ -249,11 +249,10 @@ const analyzeAtmosphere = (input) => {
 
 const analyzePreferences = (preferences, names, parentTags) => {
     const prefs = preferences.toLowerCase().split(',').map(p => p.trim());
-    const relatedTerms = ['ร้อน', 'พระอาทิตย์', 'อาทิตย์', 'ตะวัน', 'ดวงตะวัน', 'ทะเล']; // คำที่เกี่ยวข้อง
     const scoredNames = names.map(name => {
         let score = 0;
 
-        // ให้คะแนนตามแท็กของพ่อแม่
+        // ให้คะแนนตามแท็กของพ่อแม่ (สูงสุด 4 คะแนน)
         if (parentTags.size > 0) {
             name.tags.forEach(tag => {
                 if (parentTags.has(tag)) {
@@ -264,28 +263,19 @@ const analyzePreferences = (preferences, names, parentTags) => {
 
         // ให้คะแนนตามความชอบ/ความหมายที่ต้องการ
         prefs.forEach(pref => {
-            if (name.meaning.toLowerCase().includes(pref) || relatedTerms.includes(pref)) {
-                score += 3; // ให้คะแนนสูงถ้าความหมายตรงหรือคำที่เกี่ยวข้อง
+            // ตรวจสอบความหมายตรงกัน
+            if (name.meaning.toLowerCase().includes(pref)) {
+                score += 3;
             }
+            // ตรวจสอบแท็กตรงกัน
             name.tags.forEach(tag => {
                 if (tag.toLowerCase().includes(pref)) {
-                    score += 2; // ให้คะแนนถ้าแท็กตรง
+                    score += 1.5;
                 }
             });
         });
-
-        // หากคำที่ค้นหาเป็น "ร้อน" ให้เพิ่มคะแนนสำหรับชื่อที่เกี่ยวข้อง
-        if (prefs.includes('ร้อน')) {
-            relatedTerms.forEach(term => {
-                if (name.meaning.toLowerCase().includes(term) || name.tags.includes(term)) {
-                    score += 5; // เพิ่มคะแนนสำหรับชื่อที่เกี่ยวข้อง
-                }
-            });
-        }
-
-        console.log(`Name: ${name.name}, Score: ${score}`); // เพิ่มการล็อกข้อมูล
-
-        return { ...name, score };
+       
+        return { ...name, score: Math.min(score, 10) };
     });
 
     // เลือกชื่อที่มีคะแนนมากกว่า 0
@@ -293,7 +283,7 @@ const analyzePreferences = (preferences, names, parentTags) => {
         .filter(n => n.score > 0)
         .sort((a, b) => b.score - a.score);
 
-    return topNames; // ส่งกลับชื่อที่มีคะแนน
+    return topNames;
 };
 
 export { analyzePreferences };
