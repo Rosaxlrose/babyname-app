@@ -256,8 +256,8 @@ body {
 /* Responsive adjustments */
 @media (max-width: 640px) {
     .glass-container {
-        padding: 1rem !important;
-        width: 95% !important;
+        padding: 2rem !important;
+        width: 100% !important;
     }
     
     .results-grid {
