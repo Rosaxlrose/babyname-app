@@ -1,18 +1,44 @@
-import React, { useState } from 'react';
-import { nameAnalyzer } from '../utils/nameAnalyzer';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 import Swal from 'sweetalert2';
+import { recommendNames, matchNames, addNewName } from '../utils/nameAI';
+import './AINameAnalysis.css';
 
 const AINameAnalysis = () => {
-    const [analysisType, setAnalysisType] = useState('recommend'); // recommend, analyze, match
+    const [analysisType, setAnalysisType] = useState('recommend');
     const [formData, setFormData] = useState({
         name: '',
         desiredMeaning: '',
         characteristics: [],
         gender: '',
-        matchType: 'twins', // twins, siblings
+        matchType: 'twins'
     });
-    const [results, setResults] = useState(null);
+    const [results, setResults] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [usedNames, setUsedNames] = useState(new Set());
+    const [currentPage, setCurrentPage] = useState(1);
+    const resultsPerPage = 5;
+
+    useEffect(() => {
+        const container = document.querySelector('.ai-name-analysis-container');
+        if (container) {
+            // Remove any existing bubbles first
+            const existingBubbles = container.querySelectorAll('.ai-floating-bubble');
+            existingBubbles.forEach(bubble => bubble.remove());
+            
+            // Add new bubbles
+            for (let i = 0; i < 6; i++) {
+                const bubble = document.createElement('div');
+                bubble.className = 'ai-floating-bubble';
+                bubble.style.width = `${Math.random() * 100 + 50}px`;
+                bubble.style.height = bubble.style.width;
+                bubble.style.left = `${Math.random() * 100}%`;
+                bubble.style.top = `${Math.random() * 100}%`;
+                bubble.style.animationDelay = `${Math.random() * 5}s`;
+                container.appendChild(bubble);
+            }
+        }
+    }, []);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -22,243 +48,325 @@ const AINameAnalysis = () => {
         }));
     };
 
-    const handleCharacteristicsChange = (e) => {
-        const value = e.target.value;
-        setFormData(prev => ({
-            ...prev,
-            characteristics: value.split(',').map(char => char.trim())
-        }));
+    const handleNameClick = (name) => {
+        Swal.fire({
+            title: `👤 ${name.name}`,
+            html: `
+                <div class="text-left">
+                    <p><strong>ความหมาย:</strong> ${name.meaning}</p>
+                    <p><strong>แท็ก:</strong> ${name.tags.join(', ')}</p>
+                    <p><strong>เพศ:</strong> ${name.gender === 'หญิง' ? '👧' : name.gender === 'ชาย' ? '👦' : '🌟'} ${name.gender}</p>
+                    ${name.score ? `<p><strong>คะแนนความเหมาะสม:</strong> ⭐ ${name.score.toFixed(1)}</p>` : ''}
+                </div>
+            `,
+            customClass: {
+                popup: 'glass-container'
+            }
+        });
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleAddNewName = async () => {
+        const { value: formValues } = await Swal.fire({
+            title: '✨ เพิ่มชื่อใหม่',
+            html: `
+                <input id="swal-name" class="swal2-input" placeholder="ชื่อ">
+                <input id="swal-meaning" class="swal2-input" placeholder="ความหมาย">
+                <input id="swal-tags" class="swal2-input" placeholder="แท็ก (คั่นด้วยเครื่องหมาย ,)">
+                <select id="swal-gender" class="swal2-select">
+                    <option value="ชาย">ชาย</option>
+                    <option value="หญิง">หญิง</option>
+                    <option value="ทั้งสอง">ใช้ได้ทั้งสองเพศ</option>
+                </select>
+            `,
+            showCancelButton: true,
+            confirmButtonText: '💾 บันทึก',
+            cancelButtonText: '❌ ยกเลิก',
+            customClass: {
+                popup: 'glass-container'
+            },
+            preConfirm: () => {
+                const name = document.getElementById('swal-name').value;
+                const meaning = document.getElementById('swal-meaning').value;
+                const tags = document.getElementById('swal-tags').value
+                    .split(',')
+                    .map(tag => tag.trim())
+                    .filter(tag => tag);
+                const gender = document.getElementById('swal-gender').value;
+
+                if (!name || !meaning) {
+                    Swal.showValidationMessage('⚠️ กรุณากรอกชื่อและความหมาย');
+                    return false;
+                }
+
+                return { name, meaning, tags, gender };
+            }
+        });
+
+        if (formValues) {
+            try {
+                await addNewName(formValues);
+                Swal.fire({
+                    title: '🎉 เพิ่มชื่อสำเร็จ',
+                    text: 'ขอบคุณที่ช่วยเพิ่มข้อมูลให้กับระบบ',
+                    icon: 'success',
+                    customClass: {
+                        popup: 'glass-container'
+                    }
+                });
+            } catch (error) {
+                Swal.fire({
+                    title: '❌ เกิดข้อผิดพลาด',
+                    text: error.message,
+                    icon: 'error',
+                    customClass: {
+                        popup: 'glass-container'
+                    }
+                });
+            }
+        }
+    };
+
+    const handleSubmit = async (e, isRetry = false) => {
+        e?.preventDefault();
         setIsLoading(true);
-        setResults(null);
 
         try {
+            const { data: names, error } = await supabase.from('names').select('*');
+            if (error) throw error;
+
             let result;
-            switch (analysisType) {
-                case 'recommend':
-                    if (!formData.desiredMeaning) {
-                        throw new Error('กรุณาระบุความหมายที่ต้องการ');
-                    }
-                    result = await nameAnalyzer.recommendNames(formData);
-                    break;
-                case 'analyze':
-                    if (!formData.name) {
-                        throw new Error('กรุณาระบุชื่อที่ต้องการวิเคราะห์');
-                    }
-                    result = await nameAnalyzer.analyzeNameMeaning(formData.name);
-                    break;
-                case 'match':
-                    if (!formData.name) {
-                        throw new Error('กรุณาระบุชื่อที่ต้องการจับคู่');
-                    }
-                    result = await nameAnalyzer.findMatchingNames(formData.name, formData.matchType);
-                    break;
-                default:
-                    throw new Error('Invalid analysis type');
+            if (analysisType === 'recommend') {
+                result = await recommendNames(formData.desiredMeaning, names);
+            } else {
+                result = await matchNames(formData.name, formData.matchType, names);
             }
 
-            if (!result) {
+            if (!result || result.length === 0) {
                 throw new Error('ไม่พบผลลัพธ์');
             }
 
-            setResults(result);
+            // กรองชื่อที่ใช้ไปแล้ว
+            const newNames = result.filter(name => !usedNames.has(name.id));
             
-            // แสดงผลลัพธ์ด้วย Swal
-            if (analysisType === 'analyze') {
-                Swal.fire({
-                    title: `การวิเคราะห์ชื่อ "${formData.name}"`,
-                    html: `
-                        <div class="text-left">
-                            <p><strong>ความหมายหลัก:</strong> ${result.primaryMeaning}</p>
-                            <p><strong>หมวดหมู่:</strong> ${result.categories.join(', ') || '-'}</p>
-                            <p><strong>ลักษณะเด่น:</strong> ${result.characteristics.join(', ') || '-'}</p>
-                            <p><strong>บริบททางวัฒนธรรม:</strong> ${result.culturalContext.join(', ') || '-'}</p>
-                            ${result.recommendations.length > 0 ? `<p><strong>คำแนะนำ:</strong> ${result.recommendations.join(', ')}</p>` : ''}
-                        </div>
-                    `,
-                    icon: 'info'
+            if (newNames.length === 0) {
+                await Swal.fire({
+                    title: '⚠️ ไม่พบชื่อเพิ่มเติม',
+                    text: 'ได้แสดงผลชื่อทั้งหมดที่ตรงกับเงื่อนไขแล้ว',
+                    icon: 'warning',
+                    confirmButtonText: 'เริ่มใหม่',
+                    customClass: {
+                        popup: 'glass-container'
+                    }
                 });
+                setUsedNames(new Set());
+                if (isRetry) {
+                    handleSubmit(null, false);
+                }
+                return;
             }
+
+            // เพิ่มชื่อที่ใช้แล้วเข้าไปใน Set
+            newNames.forEach(name => usedNames.add(name.id));
+            setUsedNames(new Set(usedNames));
+            
+            setResults(newNames);
+            setCurrentPage(1);
+
+            Swal.fire({
+                title: '✨ พบชื่อที่เหมาะสม',
+                text: `พบ ${newNames.length} ชื่อที่แนะนำ`,
+                icon: 'success',
+                customClass: {
+                    popup: 'glass-container'
+                }
+            });
 
         } catch (error) {
             console.error('Error:', error);
             Swal.fire({
-                title: 'เกิดข้อผิดพลาด',
-                text: error.message || 'ไม่สามารถดำเนินการได้ กรุณาลองใหม่อีกครั้ง',
-                icon: 'error'
+                title: '❌ เกิดข้อผิดพลาด',
+                text: error.message || 'ไม่สามารถดำเนินการได้',
+                icon: 'error',
+                customClass: {
+                    popup: 'glass-container'
+                }
             });
-            setResults(null);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const renderForm = () => {
-        switch (analysisType) {
-            case 'recommend':
-                return (
-                    <div className="match-form-container">
-                        <form onSubmit={handleSubmit} className="glass-container">
-                            <h2>การวิเคราะห์ชื่อ</h2>
-                            <div>
-                                <label>ความหมายที่ต้องการ:</label>
-                                <input type="text" name="desiredMeaning" value={formData.desiredMeaning} onChange={handleInputChange} required />
-                            </div>
-                            <div>
-                                <label>ลักษณะ:</label>
-                                <input type="text" name="characteristics" value={formData.characteristics.join(', ')} onChange={handleCharacteristicsChange} />
-                            </div>
-                            <div>
-                                <label>เพศ:</label>
-                                <select name="gender" value={formData.gender} onChange={handleInputChange}>
-                                    <option value="">เลือกเพศ</option>
-                                    <option value="ชาย">ชาย</option>
-                                    <option value="หญิง">หญิง</option>
-                                </select>
-                            </div>
-                            <button type="submit" disabled={isLoading}>{isLoading ? 'กำลังโหลด...' : 'วิเคราะห์ชื่อ'}</button>
-                        </form>
-                    </div>
-                );
-
-            case 'analyze':
-                return (
-                    <div className="match-form-container">
-                        <form onSubmit={handleSubmit} className="glass-container">
-                            <h2>การวิเคราะห์ชื่อ</h2>
-                            <div>
-                                <label>ชื่อ:</label>
-                                <input type="text" name="name" value={formData.name} onChange={handleInputChange} required />
-                            </div>
-                            <div>
-                                <label>เพศ:</label>
-                                <select name="gender" value={formData.gender} onChange={handleInputChange}>
-                                    <option value="">เลือกเพศ</option>
-                                    <option value="ชาย">ชาย</option>
-                                    <option value="หญิง">หญิง</option>
-                                </select>
-                            </div>
-                            <button type="submit" disabled={isLoading}>{isLoading ? 'กำลังโหลด...' : 'วิเคราะห์ชื่อ'}</button>
-                        </form>
-                    </div>
-                );
-
-            case 'match':
-                return (
-                    <div className="match-form-container">
-                        <form onSubmit={handleSubmit} className="glass-container">
-                            <h2>การวิเคราะห์ชื่อ</h2>
-                            <div>
-                                <label>ชื่อ:</label>
-                                <input type="text" name="name" value={formData.name} onChange={handleInputChange} required />
-                            </div>
-                            <div>
-                                <label>ประเภทการจับคู่:</label>
-                                <select name="matchType" value={formData.matchType} onChange={handleInputChange}>
-                                    <option value="twins">ฝาแฝด</option>
-                                    <option value="siblings">พี่น้อง</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label>เพศ:</label>
-                                <select name="gender" value={formData.gender} onChange={handleInputChange}>
-                                    <option value="">เลือกเพศ</option>
-                                    <option value="ชาย">ชาย</option>
-                                    <option value="หญิง">หญิง</option>
-                                </select>
-                            </div>
-                            <button type="submit" disabled={isLoading}>{isLoading ? 'กำลังโหลด...' : 'วิเคราะห์ชื่อ'}</button>
-                        </form>
-                    </div>
-                );
-
-            default:
-                return null;
-        }
-    };
-
-    const renderResults = () => {
-        if (!results || results.length === 0) return null;
-
-        return (
-            <div className="results-container">
-                <h3 className="text-xl font-bold mb-4">ผลลัพธ์</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {results.map((result, index) => (
-                        <div
-                            key={index}
-                            className="p-4 border rounded-lg shadow hover:shadow-lg cursor-pointer"
-                            onClick={() => {
-                                Swal.fire({
-                                    title: result.name,
-                                    html: `
-                                        <div class="text-left">
-                                            <p><strong>ความหมาย:</strong> ${result.meaning}</p>
-                                            <p><strong>แท็ก:</strong> ${result.tags.join(', ')}</p>
-                                            ${result.matchScore ? `<p><strong>คะแนนความเข้ากัน:</strong> ${result.matchScore}</p>` : ''}
-                                        </div>
-                                    `,
-                                    icon: 'info'
-                                });
-                            }}
-                        >
-                            <h4 className="font-bold text-lg">{result.name}</h4>
-                            <p className="text-gray-600">{result.meaning}</p>
-                            {result.matchScore && (
-                                <p className="text-sm text-blue-600 mt-2">
-                                    คะแนนความเข้ากัน: {result.matchScore}
-                                </p>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </div>
-        );
-    };
-
     return (
-        <div className="max-w-6xl mx-auto p-6">
-            <div className="mb-6">
-                <h2 className="text-2xl font-bold mb-4">AI วิเคราะห์และแนะนำชื่อ</h2>
-                <div className="flex space-x-4">
+        <div className="ai-name-analysis-container">
+            <div className="glass-container max-w-full lg:max-w-4xl mx-auto w-[95%]">
+                <h2 className="form-title">
+                    <span className="star">🤖</span> AI แนะนำและจับคู่ชื่อ
+                </h2>
+                
+                <div className="flex space-x-4 mb-6">
                     <button
-                        onClick={() => setAnalysisType('recommend')}
-                        className={`px-4 py-2 rounded ${
+                        onClick={() => {
+                            setAnalysisType('recommend');
+                            setUsedNames(new Set());
+                            setResults([]);
+                        }}
+                        className={`px-4 py-2 rounded-lg transition-colors ${
                             analysisType === 'recommend'
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-secondary text-secondary-foreground'
                         }`}
                     >
-                        แนะนำชื่อ
+                        🎯 แนะนำชื่อ
                     </button>
                     <button
-                        onClick={() => setAnalysisType('analyze')}
-                        className={`px-4 py-2 rounded ${
-                            analysisType === 'analyze'
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200'
-                        }`}
-                    >
-                        วิเคราะห์ชื่อ
-                    </button>
-                    <button
-                        onClick={() => setAnalysisType('match')}
-                        className={`px-4 py-2 rounded ${
+                        onClick={() => {
+                            setAnalysisType('match');
+                            setUsedNames(new Set());
+                            setResults([]);
+                        }}
+                        className={`px-4 py-2 rounded-lg transition-colors ${
                             analysisType === 'match'
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-secondary text-secondary-foreground'
                         }`}
                     >
-                        จับคู่ชื่อ
+                        🤝 จับคู่ชื่อ
                     </button>
                 </div>
-            </div>
 
-            {renderForm()}
-            {renderResults()}
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    {analysisType === 'recommend' ? (
+                        <>
+                            <div className="space-y-4">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    ความหมายที่ต้องการ
+                                </label>
+                                <input
+                                    type="text"
+                                    name="desiredMeaning"
+                                    value={formData.desiredMeaning}
+                                    onChange={handleInputChange}
+                                    className="form-input"
+                                    placeholder="เช่น ความสุข, ความสำเร็จ, ความรัก"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-4">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    เพศ
+                                </label>
+                                <select
+                                    name="gender"
+                                    value={formData.gender}
+                                    onChange={handleInputChange}
+                                    className="form-input"
+                                >
+                                    <option value="">ทั้งหมด</option>
+                                    <option value="ชาย">ชาย</option>
+                                    <option value="หญิง">หญิง</option>
+                                </select>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="space-y-4">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    ชื่อที่ต้องการจับคู่
+                                </label>
+                                <input
+                                    type="text"
+                                    name="name"
+                                    value={formData.name}
+                                    onChange={handleInputChange}
+                                    className="form-input"
+                                    placeholder="ระบุชื่อที่ต้องการจับคู่"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-4">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    ประเภทการจับคู่
+                                </label>
+                                <select
+                                    name="matchType"
+                                    value={formData.matchType}
+                                    onChange={handleInputChange}
+                                    className="form-input"
+                                >
+                                    <option value="twins">👥 ฝาแฝด (ความหมายใกล้เคียงกัน)</option>
+                                    <option value="siblings">👨‍👩‍👧‍👦 พี่น้อง (ความหมายเสริมกัน)</option>
+                                </select>
+                            </div>
+                        </>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row justify-between gap-4">
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className="btn btn-primary"
+                        >
+                            {isLoading ? '⏳ กำลังประมวลผล...' : '🔍 ค้นหา'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleAddNewName}
+                            className="btn btn-secondary"
+                        >
+                            ✨ เพิ่มชื่อใหม่
+                        </button>
+                    </div>
+                </form>
+
+                {results.length > 0 && (
+                    <div className="mt-8">
+                        <h3 className="text-xl font-bold mb-4">
+                            {analysisType === 'recommend' ? '🎯 ชื่อที่แนะนำ' : '🤝 ชื่อที่เข้าคู่'}
+                        </h3>
+                        <div className="results-grid">
+                            {results.map((result) => (
+                                <div
+                                    key={result.id}
+                                    onClick={() => handleNameClick(result)}
+                                    className="name-card"
+                                >
+                                    <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
+                                        <span className="star">
+                                            {result.gender === 'หญิง' ? '👧' : result.gender === 'ชาย' ? '👦' : '🌟'}
+                                        </span>
+                                        {result.name}
+                                    </h3>
+                                    <p className="text-gray-600">{result.meaning}</p>
+                                    <div className="mt-2">
+                                        {result.tags.map((tag, index) => (
+                                            <span
+                                                key={index}
+                                                className="tag"
+                                            >
+                                                {tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    {result.score > 0 && (
+                                        <div className="mt-2 text-sm text-blue-600">
+                                            คะแนนความเหมาะสม: {result.score.toFixed(1)}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-6 flex justify-center">
+                            <button
+                                onClick={(e) => handleSubmit(e, true)}
+                                className="btn btn-secondary"
+                                disabled={isLoading}
+                            >
+                                {isLoading ? '⏳ กำลังค้นหา...' : '🔄 ค้นหาเพิ่มเติม'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

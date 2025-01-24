@@ -11,10 +11,10 @@ function App() {
   const [isNavOpen, setIsNavOpen] = useState(false);
 
   const navLinks = [
-    { to: "/", text: "หน้าหลัก" },
-    { to: "/list", text: "รายชื่อ" },
+    { to: "/", text: "หน้าหลัก 🏠" },
+    { to: "/list", text: "รายชื่อ 📃" },
     { to: "/add", text: "เพิ่มชื่อใหม่" },
-    { to: "/ai-analysis", text: "AI วิเคราะห์ชื่อ" }
+    { to: "/ai-analysis", text: "AI แนะนำชื่อ 🤖" }
   ];
 
   const NavLinks = () => (

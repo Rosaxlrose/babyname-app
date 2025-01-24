@@ -361,9 +361,8 @@ const MatchForm = () => {
   return (
     <div className="match-form-container">
            <div className="glass-container max-w-full lg:max-w-4xl mx-auto w-[95%]">
-        <div className="glass-container">
             <h2 className="form-title">
-            <span className="star">🔎</span>แมชชื่อที่เหมาะสม 
+               แมชชื่อที่เหมาะสม <span className="star">🔎</span>
             </h2>
             
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -431,8 +430,8 @@ const MatchForm = () => {
                             disabled={isLoading} 
                             className="btn btn-primary"
                         >
-                            <FontAwesomeIcon icon={faMagnifyingGlass} />
-                            {isLoading ? 'กำลังค้นหา...' : 'ค้นหา'}
+                           
+                            {isLoading ? '⏳ กำลังประมวลผล...' : '🔍 ค้นหา'}
                         </button>
                         <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
                             {showTryAgain && (
@@ -440,8 +439,8 @@ const MatchForm = () => {
                                     onClick={handleSubmit} 
                                     className="btn btn-secondary"
                                 >
-                                    <FontAwesomeIcon icon={faRotate} />
-                                    ลองอีกครั้ง
+                                    
+                                    <span className="star">🔁</span>ลองอีกครั้ง
                                 </button>
                             )}
                             <button 
@@ -449,7 +448,7 @@ const MatchForm = () => {
                                 onClick={clearForm} 
                                 className="btn btn-secondary"
                             >
-                                <FontAwesomeIcon icon={faTrash} />
+                                <span className="star">🗑️</span>
                                 ล้างฟอร์ม
                             </button>
                     </div>
@@ -557,7 +556,6 @@ const MatchForm = () => {
                 )}
             </div>
         </div>
-    </div>
     );
 };
 

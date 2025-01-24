@@ -160,7 +160,7 @@ const NameList = () => {
     <div className="name-list-container min-h-screen">
       <div className="name-list-glass">
         <h2 className="form-title">
-          <span className="star">📖</span>
+          <span className="star">📖 </span>
           รายชื่อทั้งหมด
         </h2>
 
