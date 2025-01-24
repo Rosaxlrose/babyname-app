@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
 import MatchForm from './components/MatchForm';
 import NameList from './components/์NameList';
-import AddNameForm from './components/AddNameForm';
 import AINameAnalysis from './components/AINameAnalysis';
 import { Menu, X } from 'lucide-react';
 
@@ -13,8 +12,7 @@ function App() {
   const navLinks = [
     { to: "/", text: "หน้าหลัก 🏠" },
     { to: "/list", text: "รายชื่อ 📃" },
-    { to: "/add", text: "เพิ่มชื่อใหม่" },
-    { to: "/ai-analysis", text: "AI แนะนำชื่อ 🤖" }
+    { to: "/manager", text: "AI แนะนำชื่อ 🤖" }
   ];
 
   const NavLinks = () => (
@@ -74,8 +72,7 @@ function App() {
           <Routes>
             <Route path="/" element={<MatchForm />} />
             <Route path="/list" element={<NameList />} />
-            <Route path="/add" element={<AddNameForm />} />
-            <Route path="/ai-analysis" element={<AINameAnalysis />} />
+            <Route path="/manager" element={<AINameAnalysis />} />
           </Routes>
         </div>
     
