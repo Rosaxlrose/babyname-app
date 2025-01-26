@@ -1,6 +1,10 @@
 import React, { useEffect } from 'react';
 import TeamMember from './TeamMember';
 import Member1 from '../images/member1.jpg';
+import Member3 from '../images/member3.jpg';
+import Member4 from '../images/member4.jpg';
+import Member6 from '../images/member6.jpg';
+
 
 const TeamSection = () => {
   const teamMembers = [
@@ -27,7 +31,7 @@ const TeamSection = () => {
     {
       name: "Poonyapat Wongsatit",
       role: "Product Designer",
-      image: Member1,
+      image: Member3,
       social: {
         facebook: "https://facebook.com",
         twitter: "https://twitter.com",
@@ -37,10 +41,10 @@ const TeamSection = () => {
     {
       name: "Akethanick  Rungsawang",
       role: "Back-End Developer\nDatabase Developer",
-      image: Member1,
+      image: Member4,
       social: {
+        github: "https://github.com/aekthanick",
         facebook: "https://facebook.com",
-        twitter: "https://twitter.com",
         instagram: "https://instagram.com"
       }
     },
@@ -57,11 +61,11 @@ const TeamSection = () => {
     {
       name: "Thanakorn Thitpaphong",
       role: "Front-End Developer",
-      image: Member1,
+      image: Member6,
       social: {
+        github: "https://github.com/thanakorn768",
         facebook: "https://facebook.com",
-        twitter: "https://twitter.com",
-        instagram: "https://instagram.com"
+        instagram: "https://www.instagram.com/tnk_mart/"
       }
     }
   ];

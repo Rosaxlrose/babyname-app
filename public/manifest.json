@@ -1,19 +1,19 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Baby Name",
+  "name": "Baby Name: ช่วยเลือกชื่อให้ลูกน้อย",
   "icons": [
     {
-      "src": "b-symbols.png",
+      "src": "/assets/b-symbols.png",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/png"
     },
     {
-      "src": "b-symbols.png",
+      "src": "/assets/b-symbols.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "b-symbols.png",
+      "src": "/assets/b-symbols.png",
       "type": "image/png",
       "sizes": "512x512"
     }
