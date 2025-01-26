@@ -36,7 +36,7 @@ const TeamSection = () => {
     },
     {
       name: "Akethanick  Rungsawang",
-      role: "Marketing Director",
+      role: "Back-End Developer\nDatabase Developer",
       image: Member1,
       social: {
         facebook: "https://facebook.com",
@@ -46,7 +46,7 @@ const TeamSection = () => {
     },
     {
       name: "Anut Soratyatorn",
-      role: "UX Researcher",
+      role: "Back-End Developer\nDatabase Administrator",
       image: Member1,
       social: {
         facebook: "https://facebook.com",
@@ -56,7 +56,7 @@ const TeamSection = () => {
     },
     {
       name: "Thanakorn Thitpaphong",
-      role: "Tech Lead",
+      role: "Front-End Developer",
       image: Member1,
       social: {
         facebook: "https://facebook.com",
