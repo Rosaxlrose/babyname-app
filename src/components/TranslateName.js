@@ -38,7 +38,7 @@ const TranslateName = () => {
   
     try {
       // เรียก API ที่โฮสต์ใน Vercel
-      const response = await fetch("api/translate", { 
+      const response = await fetch("/api/translate", { 
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -46,22 +46,28 @@ const TranslateName = () => {
         body: JSON.stringify({ name }),
       });
   
-      const data = await response.json();
+      if (response.ok) { // ตรวจสอบการตอบกลับ
+        const data = await response.json();
   
-      if (data.success) {
-        setMeaning(data.meaning);
+        if (data.success) {
+          setMeaning(data.meaning);
   
-        // บันทึกข้อมูลลง Supabase
-        await supabase.from("names").insert({
-          name,
-          meaning: data.meaning,
-          tags: data.tags,
-          gender: data.gender,
-        });
+          // บันทึกข้อมูลลง Supabase
+          await supabase.from("names").insert({
+            name,
+            meaning: data.meaning,
+            tags: data.tags,
+            gender: data.gender,
+          });
   
-        Swal.fire("แปลความหมายสำเร็จ", `ความหมาย: ${data.meaning}`, "success");
+          Swal.fire("แปลความหมายสำเร็จ", `ความหมาย: ${data.meaning}`, "success");
+        } else {
+          Swal.fire("ไม่สามารถแปลความหมายได้", data.message, "error");
+        }
       } else {
-        Swal.fire("ไม่สามารถแปลความหมายได้", data.message, "error");
+        const text = await response.text(); // แสดงข้อมูลที่ส่งกลับมาจาก server ที่ไม่ใช่ JSON
+        console.log('Response text:', text);
+        Swal.fire("เกิดข้อผิดพลาด", `เกิดข้อผิดพลาด: ${text}`, "error");
       }
     } catch (error) {
       Swal.fire("เกิดข้อผิดพลาด", error.message, "error");
@@ -69,6 +75,7 @@ const TranslateName = () => {
       setIsLoading(false);
     }
   };
+  
   
 
   return (
