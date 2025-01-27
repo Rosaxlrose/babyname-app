@@ -14,7 +14,7 @@ const NameList = () => {
   const [expandedCategories, setExpandedCategories] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Thai vowels to skip for categorization
+  // ข้ามการใช้สระนำหน้าชื่อ
   const thaiVowels = ['เ', 'แ', 'โ', 'ใ', 'ไ'];
 
   useEffect(() => {

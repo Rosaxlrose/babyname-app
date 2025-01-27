@@ -5,6 +5,7 @@ import MatchForm from './components/MatchForm';
 import NameList from './components/์NameList';
 import AINameAnalysis from './components/AINameAnalysis';
 import TeamSection from './components/TeamSection';
+import TranslateName from './components/TranslateName';
 import { Menu, X } from 'lucide-react';
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
   const navLinks = [
     { to: "/", text: "หน้าหลัก 🏠" },
     { to: "/list", text: "รายชื่อ 📃" },
+    { to: "/meaning", text: "แปลความหมาย 📚" },
     { to: "/analysis", text: "AI แนะนำชื่อ 🤖" },
     { to: "/team", text: "ทีม 👥" }
   ];
@@ -74,6 +76,7 @@ function App() {
           <Routes>
             <Route path="/" element={<MatchForm />} />
             <Route path="/list" element={<NameList />} />
+            <Route path="/meaning" element={<TranslateName />} />
             <Route path="/analysis" element={<AINameAnalysis />} />
             <Route path="/team" element={<TeamSection />} />
           </Routes>
