@@ -38,13 +38,14 @@ const TranslateName = () => {
   
     try {
       // เรียก API ที่โฮสต์ใน Vercel
-      const response = await fetch("/api/translate", { 
+      const response = await fetch("https://babyname-app.vercel.app/api/translate", { 
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name }),
       });
+      
   
       if (response.ok) { // ตรวจสอบการตอบกลับ
         const data = await response.json();
