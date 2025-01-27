@@ -1,5 +1,6 @@
 export default async function handler(req, res) {
-    console.log(req.method); // เพิ่มการ debug ตรงนี้
+    console.log(`Request method: ${req.method}`);
+    console.log('HUGGINGFACE_API_KEY:', process.env.HUGGINGFACE_API_KEY); // เพิ่มตรงนี้ 
     
     if (req.method !== "POST") {
       res.status(405).json({ success: false, message: "Method not allowed" });
@@ -41,5 +42,4 @@ export default async function handler(req, res) {
       res.status(500).json({ success: false, message: error.message });
     }
   }
-  
   
