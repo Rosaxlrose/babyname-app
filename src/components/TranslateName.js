@@ -38,7 +38,7 @@ const TranslateName = () => {
   
     try {
       // เรียก API ที่โฮสต์ใน Vercel
-      const response = await fetch("/api/translate", { // ใช้เส้นทางนี้เพราะ API อยู่ในโปรเจกต์เดียวกัน
+      const response = await fetch("../api/translate", { // ใช้เส้นทางนี้เพราะ API อยู่ในโปรเจกต์เดียวกัน
         method: "POST",
         headers: {
           "Content-Type": "application/json",
