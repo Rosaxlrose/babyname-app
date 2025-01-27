@@ -37,23 +37,20 @@ const TranslateName = () => {
     setIsLoading(true);
   
     try {
-      // เรียก API ที่โฮสต์ใน Vercel
-      const response = await fetch("https://babyname-app.vercel.app/api/translate", { 
+      const response = await fetch("/api/translate", { 
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name }),
       });
-      
   
-      if (response.ok) { // ตรวจสอบการตอบกลับ
+      if (response.ok) {
         const data = await response.json();
   
         if (data.success) {
           setMeaning(data.meaning);
   
-          // บันทึกข้อมูลลง Supabase
           await supabase.from("names").insert({
             name,
             meaning: data.meaning,
@@ -66,7 +63,7 @@ const TranslateName = () => {
           Swal.fire("ไม่สามารถแปลความหมายได้", data.message, "error");
         }
       } else {
-        const text = await response.text(); // แสดงข้อมูลที่ส่งกลับมาจาก server ที่ไม่ใช่ JSON
+        const text = await response.text();
         console.log('Response text:', text);
         Swal.fire("เกิดข้อผิดพลาด", `เกิดข้อผิดพลาด: ${text}`, "error");
       }
@@ -76,7 +73,6 @@ const TranslateName = () => {
       setIsLoading(false);
     }
   };
-  
   
 
   return (
