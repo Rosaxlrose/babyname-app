@@ -3,7 +3,9 @@ import TeamMember from './TeamMember';
 import Member1 from '../images/member1.jpg';
 import Member3 from '../images/member3.jpg';
 import Member4 from '../images/member4.jpg';
+import Member5 from '../images/member5.jpg';
 import Member6 from '../images/member6.jpg';
+
 
 
 const TeamSection = () => {
@@ -23,8 +25,8 @@ const TeamSection = () => {
       role: "Lead Developer",
       image: Member1,
       social: {
-        facebook: "https://facebook.com",
         twitter: "https://twitter.com",
+        facebook: "https://facebook.com",
         instagram: "https://instagram.com"
       }
     },
@@ -33,8 +35,8 @@ const TeamSection = () => {
       role: "Product Designer",
       image: Member3,
       social: {
+        github: "https://github.com/thanakorn768",
         facebook: "https://facebook.com",
-        twitter: "https://twitter.com",
         instagram: "https://instagram.com"
       }
     },
@@ -51,10 +53,10 @@ const TeamSection = () => {
     {
       name: "Anut Soratyatorn",
       role: "Back-End Developer\nDatabase Administrator",
-      image: Member1,
+      image: Member5,
       social: {
+        github: "https://github.com/thanakorn768",
         facebook: "https://facebook.com",
-        twitter: "https://twitter.com",
         instagram: "https://instagram.com"
       }
     },
