@@ -1,6 +1,6 @@
 export default async function handler(req, res) {
-    console.log(`Request method: ${req.method}`); // เช็ค method ชัดเจน
-  
+    console.log(req.method);
+    
     if (req.method !== "POST") {
       res.status(405).json({ success: false, message: "Method not allowed" });
       return;
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     }
   
     try {
-      // ตรวจ API และ method ให้ถูกต้องเสมอ
+      // เชื่อมต่อ Hugging Face API
       const response = await fetch("https://api-inference.huggingface.co/models/thainlp/wangchanberta-base-att-spm-uncased", {
         method: "POST",
         headers: {
