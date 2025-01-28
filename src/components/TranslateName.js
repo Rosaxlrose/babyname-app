@@ -6,18 +6,34 @@ import "./AINameAnalysis.css";
 const TranslateName = () => {
   const [name, setName] = useState("");
   const [meaning, setMeaning] = useState("");
-  const [isLoading, setIsLoading] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState("");
 
   useEffect(() => {
     const getApiKey = async () => {
-      const { data, error } = await supabase.rpc('get_secret', { secret_name: 'OPENAI_API_KEY' });
-      if (data) setApiKey(data);
-      if (error) console.error('Error fetching API key:', error);
+      try {
+        const { data, error } = await supabase.rpc('get_secret', { 
+          secret_name: 'OPENAI_API_KEY' 
+        });
+        
+        if (error) {
+          console.error('Error fetching API key:', error);
+          return;
+        }
+        
+        if (data) {
+          console.log('API key retrieved successfully');
+          setApiKey(data);
+        } else {
+          console.error('No API key found');
+        }
+      } catch (error) {
+        console.error('Error in getApiKey:', error);
+      }
     };
+    
     getApiKey();
   }, []);
-  
 
   useEffect(() => {
     const container = document.querySelector(".ai-name-analysis-container");
@@ -45,42 +61,46 @@ const TranslateName = () => {
     }
   
     if (!apiKey) {
-      Swal.fire("Error", "API key not found. Please set up OPENAI_API_KEY in Supabase secrets.", "error");
+      Swal.fire("ข้อผิดพลาด", "ไม่พบ API key กรุณาตั้งค่า OPENAI_API_KEY ใน Supabase secrets", "error");
       return;
     }
   
     setIsLoading(true);
   
     try {
-      const response = await fetch("https://api.openai.com/v1/completions", {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "text-davinci-003", // หรือเปลี่ยนเป็น "gpt-3.5-turbo" ตามความต้องการ
-          prompt: `ให้ความหมายของชื่อ "${name}" พร้อมสร้างแท็กที่เกี่ยวข้อง 3 อย่าง และบอกว่าเหมาะสมกับเพศใด (ชาย, หญิง, หรือใช้ได้ทั้งสอง)`,
+          model: "gpt-4o-mini",
+          messages: [{
+            role: "user",
+            content: `ให้ความหมายของชื่อ "${name}" พร้อมสร้างแท็กที่เกี่ยวข้อง 3 อย่าง และบอกว่าเหมาะสมกับเพศใด (ให้ระบเุเป็น ชาย, หญิง, หรือใช้ได้กับทั้งสอง (ไม่ต้องใส่คำว่าเพศ))`
+          }],
           max_tokens: 200,
           temperature: 0.7,
         }),
       });
   
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
       }
   
       const data = await response.json();
   
-      if (data.choices && data.choices[0]?.text) {
-        const meaning = data.choices[0].text.trim();
+      if (data.choices && data.choices[0]?.message?.content) {
+        const meaning = data.choices[0].message.content.trim();
         setMeaning(meaning);
   
         await supabase.from("names").insert({
           name,
           meaning: meaning,
-          tags: ["มงคล", "ความสำเร็จ", "ความสุข"], // หรือแก้ไขแท็กตามคำตอบจาก OpenAI
-          gender: "ทั้งสองเพศ", // หรือแก้ไขตามคำตอบจาก OpenAI
+          tags: ["มงคล", "ความสำเร็จ", "ความสุข"],
+          gender: "ทั้งสองเพศ",
         });
   
         Swal.fire("แปลความหมายสำเร็จ", `ความหมาย: ${meaning}`, "success");
@@ -94,7 +114,6 @@ const TranslateName = () => {
       setIsLoading(false);
     }
   };
-  
 
   return (
     <div className="ai-name-analysis-container">
@@ -110,24 +129,25 @@ const TranslateName = () => {
             onChange={(e) => setName(e.target.value)}
             placeholder="กรอกชื่อที่ต้องการแปล"
             className="form-input"
-          />
-          <button
-            onClick={handleTranslate}
-            disabled={isLoading}
-            className="btn btn-primary"
-          >
-            {isLoading ? "⏳ กำลังแปล..." : "🔍 แปลความหมาย"}
-          </button>
-          {meaning && (
-            <div className="mt-6">
-              <h3 className="text-xl font-bold">ผลลัพธ์</h3>
-              <p>{meaning}</p>
-            </div>
-          )}
+            ></input>
+      <button
+        onClick={handleTranslate}
+        disabled={isLoading}
+        className="btn btn-primary"
+      >
+        {isLoading ? "⏳ กำลังแปล..." : "🔍 แปลความหมาย"}
+      </button>
+      {meaning && (
+        <div className="mt-6">
+          <h3 className="text-xl font-bold">ผลลัพธ์</h3>
+          <p>{meaning}</p>
         </div>
-      </div>
+      )}
     </div>
-  );
+  </div>
+</div>
+);
+
 };
 
 export default TranslateName;
