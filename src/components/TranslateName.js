@@ -12,46 +12,26 @@ const TranslateName = () => {
   useEffect(() => {
     const getApiKey = async () => {
       try {
-        const { data, error } = await supabase.rpc('get_secret', { 
-          secret_name: 'OPENAI_API_KEY' 
+        const { data, error } = await supabase.rpc("get_secret", {
+          secret_name: "OPENAI_API_KEY",
         });
-        
+
         if (error) {
-          console.error('Error fetching API key:', error);
+          console.error("Error fetching API key:", error);
           return;
         }
-        
+
         if (data) {
-          console.log('API key retrieved successfully');
           setApiKey(data);
         } else {
-          console.error('No API key found');
+          console.error("No API key found");
         }
       } catch (error) {
-        console.error('Error in getApiKey:', error);
+        console.error("Error in getApiKey:", error);
       }
     };
-    
+
     getApiKey();
-  }, []);
-
-  useEffect(() => {
-    const container = document.querySelector(".ai-name-analysis-container");
-    if (container) {
-      const existingBubbles = container.querySelectorAll(".ai-floating-bubble");
-      existingBubbles.forEach((bubble) => bubble.remove());
-
-      for (let i = 0; i < 6; i++) {
-        const bubble = document.createElement("div");
-        bubble.className = "ai-floating-bubble";
-        bubble.style.width = `${Math.random() * 100 + 50}px`;
-        bubble.style.height = bubble.style.width;
-        bubble.style.left = `${Math.random() * 100}%`;
-        bubble.style.top = `${Math.random() * 100}%`;
-        bubble.style.animationDelay = `${Math.random() * 5}s`;
-        container.appendChild(bubble);
-      }
-    }
   }, []);
 
   const parseAIResponse = (response) => {
@@ -72,17 +52,20 @@ const TranslateName = () => {
 
       return {
         meaning: meaningMatch ? meaningMatch[1].trim() : response,
-        tags: tagsMatch ? 
-          tagsMatch[1].split(/[,،]/).map(tag => tag.trim()).filter(tag => tag) : 
-          ["มงคล", "ความสำเร็จ", "ความสุข"],
-        gender
+        tags: tagsMatch
+          ? tagsMatch[1]
+              .split(/[,،]/)
+              .map((tag) => tag.trim())
+              .filter((tag) => tag)
+          : [],
+        gender,
       };
     } catch (error) {
       console.error("Error parsing AI response:", error);
       return {
         meaning: response,
-        tags: ["มงคล", "ความสำเร็จ", "ความสุข"],
-        gender: "ใช้ได้กับทั้งสอง"
+        tags: [],
+        gender: "ใช้ได้กับทั้งสอง",
       };
     }
   };
@@ -93,14 +76,43 @@ const TranslateName = () => {
       return;
     }
   
-    if (!apiKey) {
-      Swal.fire("ข้อผิดพลาด", "ไม่พบ API key กรุณาตั้งค่า OPENAI_API_KEY ใน Supabase secrets", "error");
-      return;
-    }
-  
     setIsLoading(true);
   
     try {
+      // ตรวจสอบ cache ใน localStorage ก่อน
+      const cachedResult = localStorage.getItem(`name-${name}`);
+      if (cachedResult) {
+        const { meaning } = JSON.parse(cachedResult);
+        setMeaning(meaning);
+        Swal.fire("ผลลัพธ์จาก cache", `ความหมาย: ${meaning}`, "info");
+        return;
+      }
+  
+      // ตรวจสอบจากฐานข้อมูล
+      const { data: existingName, error: fetchError } = await supabase
+        .from("names")
+        .select("meaning")
+        .eq("name", name)
+        .single();
+  
+      if (!fetchError && existingName) {
+        // เก็บผลลัพธ์ใน cache
+        localStorage.setItem(`name-${name}`, JSON.stringify(existingName));
+        setMeaning(existingName.meaning);
+        Swal.fire("ผลลัพธ์จากฐานข้อมูล", `ความหมาย: ${existingName.meaning}`, "info");
+        return;
+      }
+  
+      // เรียก AI API หากไม่มีในฐานข้อมูลหรือ cache
+      if (!apiKey) {
+        Swal.fire(
+          "ข้อผิดพลาด",
+          "ไม่พบ API key กรุณาตั้งค่า OPENAI_API_KEY ใน Supabase secrets",
+          "error"
+        );
+        return;
+      }
+  
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -109,16 +121,18 @@ const TranslateName = () => {
         },
         body: JSON.stringify({
           model: "gpt-3.5-turbo",
-          messages: [{
-            role: "user",
-            content: `วิเคราะห์ชื่อต่อไปนี้:
-ชื่อ: "${name}"
-กรุณาตอบในรูปแบบ:
-ความหมาย: [ความหมายของชื่อ]
-แท็ก: [แท็ก1], [แท็ก2], [แท็ก3]
-เพศ: [ตอบเฉพาะคำว่า "ชาย" หรือ "หญิง" หรือ "ใช้ได้กับทั้งสอง" เท่านั้น]`
-          }],
-          max_tokens: 200,
+          messages: [
+            {
+              role: "user",
+              content: `วิเคราะห์ชื่อต่อไปนี้:
+              ชื่อ: "${name}"
+              กรุณาตอบในรูปแบบ:
+              ความหมาย: [ความหมายของชื่อ]
+              แท็ก: [แท็ก1], [แท็ก2], [แท็ก3]
+              เพศ: [ตอบเฉพาะคำว่า "ชาย" หรือ "หญิง" หรือ "ใช้ได้กับทั้งสอง" เท่านั้น]`,
+            },
+          ],
+          max_tokens: 100,
           temperature: 0.7,
         }),
       });
@@ -129,33 +143,31 @@ const TranslateName = () => {
       }
   
       const data = await response.json();
-      console.log("OpenAI Response:", data);
+      const aiResponse = data.choices[0]?.message?.content.trim();
+      const parsedResponse = parseAIResponse(aiResponse);
   
-      if (data.choices && data.choices[0]?.message?.content) {
-        const aiResponse = data.choices[0].message.content.trim();
-        console.log("AI Response:", aiResponse);
-
-        const parsedResponse = parseAIResponse(aiResponse);
-        console.log("Parsed Response:", parsedResponse);
-        
-        setMeaning(parsedResponse.meaning);
+      // เก็บผลลัพธ์ลงฐานข้อมูลและ cache
+      const { error: dbError } = await supabase.from("names").insert({
+        name,
+        meaning: parsedResponse.meaning,
+        tags: parsedResponse.tags,
+        gender: parsedResponse.gender,
+      });
   
-        const { error: dbError } = await supabase.from("names").insert({
+      if (dbError) {
+        console.error("Database Error:", dbError);
+      }
+  
+      localStorage.setItem(
+        `name-${name}`,
+        JSON.stringify({
           name,
           meaning: parsedResponse.meaning,
-          tags: parsedResponse.tags,
-          gender: parsedResponse.gender,
-        });
-
-        if (dbError) {
-          console.error("Database Error:", dbError);
-          throw new Error(dbError.message);
-        }
+        })
+      );
   
-        Swal.fire("แปลความหมายสำเร็จ", `ความหมาย: ${parsedResponse.meaning}`, "success");
-      } else {
-        Swal.fire("ไม่สามารถแปลความหมายได้", "ไม่พบข้อมูลการแปล", "error");
-      }
+      setMeaning(parsedResponse.meaning);
+      Swal.fire("แปลความหมายสำเร็จ", `ความหมาย: ${parsedResponse.meaning}`, "success");
     } catch (error) {
       console.error("Error:", error);
       Swal.fire("เกิดข้อผิดพลาด", `ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้: ${error.message}`, "error");
@@ -171,7 +183,10 @@ const TranslateName = () => {
           <span className="star">🤖</span> แปลความหมายชื่อ
         </h2>
         <div className="space-y-6">
-          <label className="block text-sm font-medium text-gray-700">ชื่อภาษาไทย</label>
+          <div className="flex justify-between">
+  <label className="block text-sm font-medium text-gray-700">ชื่อภาษาไทย</label>
+  <label className="block text-sm font-medium text-gray-700 text-right">Powered by GPT-4o-mini</label>
+</div>
           <input
             type="text"
             value={name}
@@ -189,7 +204,8 @@ const TranslateName = () => {
           {meaning && (
             <div className="mt-6">
               <h3 className="text-xl font-bold">ผลลัพธ์</h3>
-              <p>{meaning}</p>
+              <p>ชื่อ: {name}</p>
+              <p>ความหมาย: {meaning}</p>
             </div>
           )}
         </div>
