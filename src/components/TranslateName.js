@@ -12,100 +12,149 @@ const TranslateName = () => {
   useEffect(() => {
     const getApiKey = async () => {
       try {
-        const { data, error } = await supabase.rpc('get_secret', { 
-          secret_name: 'OPENAI_API_KEY' 
+        const { data, error } = await supabase.rpc("get_secret", {
+          secret_name: "OPENAI_API_KEY",
         });
-        
+
         if (error) {
-          console.error('Error fetching API key:', error);
+          console.error("Error fetching API key:", error);
           return;
         }
-        
+
         if (data) {
-          console.log('API key retrieved successfully');
           setApiKey(data);
         } else {
-          console.error('No API key found');
+          console.error("No API key found");
         }
       } catch (error) {
-        console.error('Error in getApiKey:', error);
+        console.error("Error in getApiKey:", error);
       }
     };
-    
+
     getApiKey();
   }, []);
 
-  useEffect(() => {
-    const container = document.querySelector(".ai-name-analysis-container");
-    if (container) {
-      const existingBubbles = container.querySelectorAll(".ai-floating-bubble");
-      existingBubbles.forEach((bubble) => bubble.remove());
+  const parseAIResponse = (response) => {
+    try {
+      const meaningMatch = response.match(/ความหมาย:?\s*(.+?)(?=\n|แท็ก|เพศ|$)/i);
+      const tagsMatch = response.match(/แท็ก:?\s*(.+?)(?=\n|เพศ|$)/i);
+      const genderMatch = response.match(/เพศ:?\s*(.+?)(?=\n|$)/i);
 
-      for (let i = 0; i < 6; i++) {
-        const bubble = document.createElement("div");
-        bubble.className = "ai-floating-bubble";
-        bubble.style.width = `${Math.random() * 100 + 50}px`;
-        bubble.style.height = bubble.style.width;
-        bubble.style.left = `${Math.random() * 100}%`;
-        bubble.style.top = `${Math.random() * 100}%`;
-        bubble.style.animationDelay = `${Math.random() * 5}s`;
-        container.appendChild(bubble);
+      let gender = "ใช้ได้กับทั้งสอง";
+      if (genderMatch) {
+        const genderText = genderMatch[1].trim().toLowerCase();
+        if (genderText.includes("ชาย") && !genderText.includes("หญิง")) {
+          gender = "ชาย";
+        } else if (genderText.includes("หญิง") && !genderText.includes("ชาย")) {
+          gender = "หญิง";
+        }
       }
+
+      return {
+        meaning: meaningMatch ? meaningMatch[1].trim() : response,
+        tags: tagsMatch
+          ? tagsMatch[1]
+              .split(/[,،]/)
+              .map((tag) => tag.trim())
+              .filter((tag) => tag)
+          : [],
+        gender,
+      };
+    } catch (error) {
+      console.error("Error parsing AI response:", error);
+      return {
+        meaning: response,
+        tags: [],
+        gender: "ใช้ได้กับทั้งสอง",
+      };
     }
-  }, []);
+  };
 
   const handleTranslate = async () => {
     if (!name) {
       Swal.fire("กรุณากรอกชื่อ");
       return;
     }
-  
-    if (!apiKey) {
-      Swal.fire("ข้อผิดพลาด", "ไม่พบ API key กรุณาตั้งค่า OPENAI_API_KEY ใน Supabase secrets", "error");
-      return;
-    }
-  
+
     setIsLoading(true);
-  
+
     try {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [{
-            role: "user",
-            content: `ให้ความหมายของชื่อ "${name}" พร้อมสร้างแท็กที่เกี่ยวข้อง 3 อย่าง และบอกว่าเหมาะสมกับเพศใด (ให้ระบเุเป็น ชาย, หญิง, หรือใช้ได้กับทั้งสอง (ไม่ต้องใส่คำว่าเพศ))`
-          }],
-          max_tokens: 200,
-          temperature: 0.7,
-        }),
-      });
-  
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
-      }
-  
-      const data = await response.json();
-  
-      if (data.choices && data.choices[0]?.message?.content) {
-        const meaning = data.choices[0].message.content.trim();
-        setMeaning(meaning);
-  
-        await supabase.from("names").insert({
-          name,
-          meaning: meaning,
-          tags: ["มงคล", "ความสำเร็จ", "ความสุข"],
-          gender: "ทั้งสองเพศ",
-        });
-  
-        Swal.fire("แปลความหมายสำเร็จ", `ความหมาย: ${meaning}`, "success");
+      // Check if the name exists in the database
+      const { data: existingName, error: fetchError } = await supabase
+        .from("names")
+        .select("meaning")
+        .eq("name", name)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      if (existingName) {
+        setMeaning(existingName.meaning);
+        Swal.fire("ผลลัพธ์จากฐานข้อมูล", `ความหมาย: ${existingName.meaning}`, "info");
       } else {
-        Swal.fire("ไม่สามารถแปลความหมายได้", "ไม่พบข้อมูลการแปล", "error");
+        if (!apiKey) {
+          Swal.fire(
+            "ข้อผิดพลาด",
+            "ไม่พบ API key กรุณาตั้งค่า OPENAI_API_KEY ใน Supabase secrets",
+            "error"
+          );
+          return;
+        }
+
+        // Fetch meaning from AI
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-3.5-turbo",
+            messages: [
+              {
+                role: "user",
+                content: `วิเคราะห์ชื่อต่อไปนี้:
+                ชื่อ: "${name}"
+                กรุณาตอบในรูปแบบ:
+                ความหมาย: [ความหมายของชื่อ]
+                แท็ก: [แท็ก1], [แท็ก2], [แท็ก3]
+                เพศ: [ตอบเฉพาะคำว่า "ชาย" หรือ "หญิง" หรือ "ใช้ได้กับทั้งสอง" เท่านั้น]`,
+              },
+            ],
+            max_tokens: 200,
+            temperature: 0.7,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.choices && data.choices[0]?.message?.content) {
+          const aiResponse = data.choices[0].message.content.trim();
+          const parsedResponse = parseAIResponse(aiResponse);
+
+          setMeaning(parsedResponse.meaning);
+
+          // Save to database
+          const { error: dbError } = await supabase.from("names").insert({
+            name,
+            meaning: parsedResponse.meaning,
+            tags: parsedResponse.tags,
+            gender: parsedResponse.gender,
+          });
+
+          if (dbError) {
+            console.error("Database Error:", dbError);
+            throw new Error(dbError.message);
+          }
+
+          Swal.fire("แปลความหมายสำเร็จ", `ความหมาย: ${parsedResponse.meaning}`, "success");
+        } else {
+          Swal.fire("ไม่สามารถแปลความหมายได้", "ไม่พบข้อมูลการแปล", "error");
+        }
       }
     } catch (error) {
       console.error("Error:", error);
@@ -122,32 +171,36 @@ const TranslateName = () => {
           <span className="star">🤖</span> แปลความหมายชื่อ
         </h2>
         <div className="space-y-6">
-          <label className="block text-sm font-medium text-gray-700">ชื่อภาษาไทย</label>
+        <div className="flex justify-between">
+  <label className="block text-sm font-medium text-gray-700">ชื่อภาษาไทย</label>
+  <label className="block text-sm font-medium text-gray-700 text-right">Powered by GPT-4o-mini</label>
+</div>
+
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="กรอกชื่อที่ต้องการแปล"
             className="form-input"
-            ></input>
-      <button
-        onClick={handleTranslate}
-        disabled={isLoading}
-        className="btn btn-primary"
-      >
-        {isLoading ? "⏳ กำลังแปล..." : "🔍 แปลความหมาย"}
-      </button>
-      {meaning && (
-        <div className="mt-6">
-          <h3 className="text-xl font-bold">ผลลัพธ์</h3>
-          <p>{meaning}</p>
+          />
+          <button
+            onClick={handleTranslate}
+            disabled={isLoading}
+            className="btn btn-primary"
+          >
+            {isLoading ? "⏳ กำลังแปล..." : "🔍 แปลความหมาย"}
+          </button>
+          {meaning && (
+            <div className="mt-6">
+              <h3 className="text-xl font-bold">ผลลัพธ์</h3>
+              <p>ชื่อ: {name}</p>
+              <p>ความหมาย: {meaning}</p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
-  </div>
-</div>
-);
-
+  );
 };
 
 export default TranslateName;
