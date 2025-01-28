@@ -8,7 +8,6 @@ const TranslateName = () => {
   const [meaning, setMeaning] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // สร้าง Bubble สำหรับพื้นหลัง
   useEffect(() => {
     const container = document.querySelector(".ai-name-analysis-container");
     if (container) {
@@ -37,8 +36,7 @@ const TranslateName = () => {
     setIsLoading(true);
   
     try {
-      // เรียก API ที่โฮสต์ใน Vercel
-      const response = await fetch("/api/translate", { 
+      const response = await fetch("/api/translate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -46,35 +44,34 @@ const TranslateName = () => {
         body: JSON.stringify({ name }),
       });
   
-      if (response.ok) {
-        const data = await response.json();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
   
-        if (data.success) {
-          setMeaning(data.meaning);
+      const data = await response.json();
   
-          await supabase.from("names").insert({
-            name,
-            meaning: data.meaning,
-            tags: data.tags,
-            gender: data.gender,
-          });
+      if (data.success) {
+        setMeaning(data.meaning);
   
-          Swal.fire("แปลความหมายสำเร็จ", `ความหมาย: ${data.meaning}`, "success");
-        } else {
-          Swal.fire("ไม่สามารถแปลความหมายได้", data.message, "error");
-        }
+        // บันทึกข้อมูลลง Supabase
+        await supabase.from("names").insert({
+          name,
+          meaning: data.meaning,
+          tags: data.tags,
+          gender: data.gender,
+        });
+  
+        Swal.fire("แปลความหมายสำเร็จ", `ความหมาย: ${data.meaning}`, "success");
       } else {
-        const text = await response.text();
-        console.log('Response text:', text);
-        Swal.fire("เกิดข้อผิดพลาด", `เกิดข้อผิดพลาด: ${text}`, "error");
+        Swal.fire("ไม่สามารถแปลความหมายได้", data.message || "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ", "error");
       }
     } catch (error) {
-      Swal.fire("เกิดข้อผิดพลาด", error.message, "error");
+      console.error("Error:", error);
+      Swal.fire("เกิดข้อผิดพลาด", `ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้: ${error.message}`, "error");
     } finally {
       setIsLoading(false);
     }
   };
-  
 
   return (
     <div className="ai-name-analysis-container">
