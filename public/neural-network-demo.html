@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Neural Network Visualization - Baby Name Matching</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f2f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .network-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            margin: 20px 0;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .layer {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        .input-layer { left: 5%; }
+        .hidden-layer { left: 40%; }
+        .output-layer { left: 75%; }
+        .neuron {
+            width: 30px;
+            height: 30px;
+            background: #4CAF50;
+            border-radius: 50%;
+            margin: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            position: relative;
+            transition: all 0.3s;
+        }
+        .connection {
+            position: absolute;
+            background: #ccc;
+            height: 2px;
+            transform-origin: 0 0;
+            opacity: 0.3;
+        }
+        .connection.active {
+            background: #2196F3;
+            opacity: 1;
+        }
+        .neuron.active {
+            background: #2196F3;
+            transform: scale(1.2);
+        }
+        .layer-label {
+            position: absolute;
+            bottom: -30px;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+            color: #333;
+        }
+        .input-data {
+            position: absolute;
+            left: -200px;
+            width: 180px;
+            font-size: 12px;
+            background: #e9ecef;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        .output-data {
+            position: absolute;
+            right: -200px;
+            width: 180px;
+            font-size: 12px;
+            background: #e9ecef;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .explanation {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Neural Network สำหรับการแมทช์ชื่อเด็ก</h1>
+        <button onclick="startAnimation()">แสดงการทำงาน</button>
+        
+        <div class="network-container" id="network">
+            <!-- Input Layer -->
+            <div class="layer input-layer">
+                <div class="input-data">
+                    ข้อมูลเข้า:<br>
+                    - ความหมาย: "ความสุข"<br>
+                    - แท็กพ่อ: "มงคล"<br>
+                    - แท็กแม่: "ความดี"
+                </div>
+                <div class="neuron">1</div>
+                <div class="neuron">2</div>
+                <div class="neuron">3</div>
+                <div class="neuron">...</div>
+                <div class="neuron">50</div>
+                <div class="layer-label">Input Layer (50 nodes)</div>
+            </div>
+
+            <!-- Hidden Layer -->
+            <div class="layer hidden-layer">
+                <div class="neuron">1</div>
+                <div class="neuron">2</div>
+                <div class="neuron">3</div>
+                <div class="neuron">...</div>
+                <div class="neuron">32</div>
+                <div class="layer-label">Hidden Layer (32 nodes)</div>
+            </div>
+
+            <!-- Output Layer -->
+            <div class="layer output-layer">
+                <div class="output-data">
+                    ผลลัพธ์:<br>
+                    Vector ของชื่อที่เหมาะสม<br>
+                    นำไปเทียบกับชื่อในฐานข้อมูล
+                </div>
+                <div class="neuron">1</div>
+                <div class="neuron">2</div>
+                <div class="neuron">3</div>
+                <div class="neuron">...</div>
+                <div class="neuron">50</div>
+                <div class="layer-label">Output Layer (50 nodes)</div>
+            </div>
+        </div>
+
+        <div class="explanation">
+            <h2>การทำงานของ Neural Network</h2>
+            <ol>
+                <li><strong>Input Layer (50 nodes)</strong>
+                    <ul>
+                        <li>รับข้อมูลความหมายที่ต้องการ (25 nodes)</li>
+                        <li>รับข้อมูลแท็กของพ่อแม่ (25 nodes)</li>
+                        <li>แปลงข้อความเป็นตัวเลข 0-255</li>
+                    </ul>
+                </li>
+                <li><strong>Hidden Layer (32 nodes)</strong>
+                    <ul>
+                        <li>ประมวลผลข้อมูลผ่าน ReLU activation</li>
+                        <li>เรียนรู้ความสัมพันธ์ระหว่างข้อมูล</li>
+                        <li>ปรับค่า weights ระหว่างการเทรน</li>
+                    </ul>
+                </li>
+                <li><strong>Output Layer (50 nodes)</strong>
+                    <ul>
+                        <li>สร้าง vector ของชื่อที่เหมาะสม</li>
+                        <li>นำไปเปรียบเทียบกับชื่อในฐานข้อมูล</li>
+                        <li>จัดอันดับชื่อตามความใกล้เคียง</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function createConnections() {
+            const network = document.getElementById('network');
+            const layers = document.querySelectorAll('.layer');
+            
+            // Clear existing connections
+            const oldConnections = document.querySelectorAll('.connection');
+            oldConnections.forEach(conn => conn.remove());
+
+            // Create connections between layers
+            for (let i = 0; i < layers.length - 1; i++) {
+                const currentLayer = layers[i];
+                const nextLayer = layers[i + 1];
+                const currentNeurons = currentLayer.querySelectorAll('.neuron');
+                const nextNeurons = nextLayer.querySelectorAll('.neuron');
+
+                currentNeurons.forEach((startNeuron, startIndex) => {
+                    if (startIndex === 3) return; // Skip the "..." neuron
+                    nextNeurons.forEach((endNeuron, endIndex) => {
+                        if (endIndex === 3) return; // Skip the "..." neuron
+                        const connection = document.createElement('div');
+                        connection.className = 'connection';
+                        
+                        const start = startNeuron.getBoundingClientRect();
+                        const end = endNeuron.getBoundingClientRect();
+                        const networkRect = network.getBoundingClientRect();
+
+                        const length = Math.sqrt(
+                            Math.pow(end.left - start.left, 2) +
+                            Math.pow(end.top - start.top, 2)
+                        );
+
+                        const angle = Math.atan2(
+                            end.top - start.top,
+                            end.left - start.left
+                        );
+
+                        connection.style.width = `${length}px`;
+                        connection.style.transform = `rotate(${angle}rad)`;
+                        connection.style.left = `${start.left - networkRect.left + 15}px`;
+                        connection.style.top = `${start.top - networkRect.top + 15}px`;
+
+                        network.appendChild(connection);
+                    });
+                });
+            }
+        }
+
+        function startAnimation() {
+            const neurons = document.querySelectorAll('.neuron');
+            const connections = document.querySelectorAll('.connection');
+            
+            // Reset all animations
+            neurons.forEach(n => n.classList.remove('active'));
+            connections.forEach(c => c.classList.remove('active'));
+
+            // Animate input layer
+            const inputNeurons = document.querySelectorAll('.input-layer .neuron');
+            inputNeurons.forEach((n, i) => {
+                setTimeout(() => {
+                    n.classList.add('active');
+                }, i * 100);
+            });
+
+            // Animate connections to hidden layer
+            setTimeout(() => {
+                const firstConnections = document.querySelectorAll('.connection');
+                firstConnections.forEach((c, i) => {
+                    setTimeout(() => {
+                        c.classList.add('active');
+                    }, i * 20);
+                });
+            }, 600);
+
+            // Animate hidden layer
+            const hiddenNeurons = document.querySelectorAll('.hidden-layer .neuron');
+            setTimeout(() => {
+                hiddenNeurons.forEach((n, i) => {
+                    setTimeout(() => {
+                        n.classList.add('active');
+                    }, i * 100);
+                });
+            }, 1200);
+
+            // Animate output layer
+            const outputNeurons = document.querySelectorAll('.output-layer .neuron');
+            setTimeout(() => {
+                outputNeurons.forEach((n, i) => {
+                    setTimeout(() => {
+                        n.classList.add('active');
+                    }, i * 100);
+                });
+            }, 1800);
+
+            // Reset animation after completion
+            setTimeout(() => {
+                neurons.forEach(n => n.classList.remove('active'));
+                connections.forEach(c => c.classList.remove('active'));
+            }, 3000);
+        }
+
+        // Create initial connections
+        window.addEventListener('load', createConnections);
+        window.addEventListener('resize', createConnections);
+    </script>
+</body>
+</html>

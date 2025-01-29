@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import Swal from 'sweetalert2';
-import { recommendNames, matchNames, addNewName } from '../utils/nameAI';
+import { recommendNames, matchNames, addNewName } from '../utils/nameDecisionTree';
 import './AINameAnalysis.css';
 
 const AINameAnalysis = () => {
@@ -17,7 +17,7 @@ const AINameAnalysis = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [usedNames, setUsedNames] = useState(new Set());
     const [currentPage, setCurrentPage] = useState(1);
-    const resultsPerPage = 5;
+    const resultsPerPage = 6;
 
     useEffect(() => {
         const container = document.querySelector('.ai-name-analysis-container');
@@ -56,7 +56,7 @@ const AINameAnalysis = () => {
                     <p><strong>ความหมาย:</strong> ${name.meaning}</p>
                     <p><strong>แท็ก:</strong> ${name.tags.join(', ')}</p>
                     <p><strong>เพศ:</strong> ${name.gender === 'หญิง' ? '👧' : name.gender === 'ชาย' ? '👦' : '🌟'} ${name.gender}</p>
-                    ${name.score ? `<p><strong>คะแนนความเหมาะสม:</strong> ⭐ ${name.score.toFixed(1)}</p>` : ''}
+                    ${name.score ? `<p><strong>คะแนนความเหมาะสม:</strong> ${name.score}/15 ⭐</p>` : ''}
                 </div>
             `,
             customClass: {
@@ -129,6 +129,7 @@ const AINameAnalysis = () => {
     const handleSubmit = async (e, isRetry = false) => {
         e?.preventDefault();
         setIsLoading(true);
+        setResults([]); // เคลียร์ผลลัพธ์เก่าก่อน
 
         try {
             const { data: names, error } = await supabase.from('names').select('*');
@@ -142,39 +143,38 @@ const AINameAnalysis = () => {
             }
 
             if (!result || result.length === 0) {
-                throw new Error('ไม่พบผลลัพธ์');
+                setResults([]);  // เคลียร์ผลลัพธ์
+                throw new Error('ไม่พบชื่อที่เหมาะสม');
             }
 
             // กรองชื่อที่ใช้ไปแล้ว
-            const newNames = result.filter(name => !usedNames.has(name.id));
+            const newNames = isRetry 
+                ? result.filter(name => !usedNames.has(name.id))
+                : result;
             
             if (newNames.length === 0) {
-                await Swal.fire({
-                    title: '⚠️ ไม่พบชื่อเพิ่มเติม',
-                    text: 'ได้แสดงผลชื่อทั้งหมดที่ตรงกับเงื่อนไขแล้ว',
-                    icon: 'warning',
-                    confirmButtonText: 'เริ่มใหม่',
-                    customClass: {
-                        popup: 'glass-container'
-                    }
-                });
-                setUsedNames(new Set());
-                if (isRetry) {
-                    handleSubmit(null, false);
-                }
-                return;
+                setResults([]);  // เคลียร์ผลลัพธ์
+                throw new Error('ไม่พบชื่อเพิ่มเติม');
             }
 
             // เพิ่มชื่อที่ใช้แล้วเข้าไปใน Set
-            newNames.forEach(name => usedNames.add(name.id));
-            setUsedNames(new Set(usedNames));
+            if (isRetry) {
+                newNames.forEach(name => usedNames.add(name.id));
+                setUsedNames(new Set(usedNames));
+            } else {
+                setUsedNames(new Set(newNames.map(name => name.id)));
+            }
             
             setResults(newNames);
             setCurrentPage(1);
 
+            const message = analysisType === 'recommend' 
+                ? 'ชื่อที่มีความหมายตรงกับความต้องการ'
+                : 'ชื่อที่เข้าคู่กัน';
+
             Swal.fire({
                 title: '✨ พบชื่อที่เหมาะสม',
-                text: `พบ ${newNames.length} ชื่อที่แนะนำ`,
+                text: `พบ ${newNames.length} ${message}`,
                 icon: 'success',
                 customClass: {
                     popup: 'glass-container'
@@ -319,26 +319,23 @@ const AINameAnalysis = () => {
                 </form>
 
                 {results.length > 0 && (
-                    <div className="mt-8">
-                        <h3 className="text-xl font-bold mb-4">
-                            {analysisType === 'recommend' ? '🎯 ชื่อที่แนะนำ' : '🤝 ชื่อที่เข้าคู่'}
-                        </h3>
+                    <>
                         <div className="results-grid">
-                            {results.map((result) => (
+                            {results.slice((currentPage - 1) * resultsPerPage, currentPage * resultsPerPage).map((name) => (
                                 <div
-                                    key={result.id}
-                                    onClick={() => handleNameClick(result)}
+                                    key={name.id}
+                                    onClick={() => handleNameClick(name)}
                                     className="name-card"
                                 >
                                     <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
                                         <span className="star">
-                                            {result.gender === 'หญิง' ? '👧' : result.gender === 'ชาย' ? '👦' : '🌟'}
+                                            {name.gender === 'หญิง' ? '👧' : name.gender === 'ชาย' ? '👦' : '🌟'}
                                         </span>
-                                        {result.name}
+                                        {name.name}
                                     </h3>
-                                    <p className="text-gray-600">{result.meaning}</p>
+                                    <p className="text-gray-600">{name.meaning}</p>
                                     <div className="mt-2">
-                                        {result.tags.map((tag, index) => (
+                                        {name.tags.map((tag, index) => (
                                             <span
                                                 key={index}
                                                 className="tag"
@@ -347,24 +344,43 @@ const AINameAnalysis = () => {
                                             </span>
                                         ))}
                                     </div>
-                                    {result.score > 0 && (
-                                        <div className="mt-2 text-sm text-blue-600">
-                                            คะแนนความเหมาะสม: {result.score.toFixed(1)}
-                                        </div>
-                                    )}
+                                    <div className="mt-2 text-sm text-blue-600">
+                                        {name.score !== null && (
+                                            <div className="flex items-center gap-1">
+                                                <span>ความเหมาะสม: {name.score}/15 คะแนน</span>
+                                                <span className="star">⭐</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
-                        <div className="mt-6 flex justify-center">
-                            <button
-                                onClick={(e) => handleSubmit(e, true)}
-                                className="btn btn-secondary"
-                                disabled={isLoading}
-                            >
-                                {isLoading ? '⏳ กำลังค้นหา...' : '🔄 ค้นหาเพิ่มเติม'}
-                            </button>
-                        </div>
-                    </div>
+
+                        {/* ปุ่มเปลี่ยนหน้า */}
+                        {results.length > resultsPerPage && (
+                            <div className="pagination-buttons">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className={`btn btn-secondary ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    <span className="star">⬅️</span>
+                                    ก่อนหน้า
+                                </button>
+                                <span className="text-lg">
+                                    หน้า {currentPage} จาก {Math.ceil(results.length / resultsPerPage)}
+                                </span>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(results.length / resultsPerPage), prev + 1))}
+                                    disabled={currentPage >= Math.ceil(results.length / resultsPerPage)}
+                                    className={`btn btn-secondary ${currentPage >= Math.ceil(results.length / resultsPerPage) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    ถัดไป
+                                    <span className="star">➡️</span>
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>

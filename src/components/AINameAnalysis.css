@@ -144,6 +144,14 @@
     color: var(--primary);
 }
 
+.pagination-buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
     .glass-container {

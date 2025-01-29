@@ -36,20 +36,109 @@ export const getRelatedMeanings = async (word) => {
   return data.map(d => d.meaning);
 };
 
-// เพิ่มข้อมูลการเทรน (ไม่มีการเปลี่ยนแปลง)
-export const addTrainingData = async (input, output, confidence) => {
-  const { error } = await supabase
-    .from('training_data')
-    .insert([{
-      input_text: input,
-      output_text: output,
-      confidence_score: confidence
-    }]);
-  if (error) throw error;
+// Cache for word meanings
+const meaningCache = new Map();
+const CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
+
+// Cache for enhanced terms
+const enhancedTermsCache = new Map();
+
+const getMeaningFromCache = (word) => {
+    const cached = meaningCache.get(word);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        return cached.meaning;
+    }
+    meaningCache.delete(word);
+    return null;
+};
+
+const addMeaningToCache = (word, meaning) => {
+    meaningCache.set(word, {
+        meaning,
+        timestamp: Date.now()
+    });
+};
+
+// คำที่มักจะใช้ด้วยกัน (Collocations)
+const commonCollocations = new Map([
+    ['ความสุข', ['สดใส', 'รุ่งเรือง', 'เบิกบาน', 'สมหวัง', 'สำเร็จ']],
+    ['ความสำเร็จ', ['รุ่งเรือง', 'ก้าวหน้า', 'มั่งคั่ง', 'มั่นคง']],
+    ['มงคล', ['เจริญ', 'รุ่งเรือง', 'ดี', 'สิริ']],
+    ['เจริญ', ['รุ่งเรือง', 'ก้าวหน้า', 'มั่นคง']],
+    ['รุ่งเรือง', ['เจริญ', 'ก้าวหน้า', 'มั่งคั่ง']],
+    ['สิริ', ['มงคล', 'ดี', 'เจริญ']],
+    ['ดี', ['เจริญ', 'มงคล', 'สุข']],
+]);
+
+export const enhanceSearchTerms = async (searchTerms) => {
+    if (!searchTerms?.trim()) return [];
+
+    const cacheKey = searchTerms.toLowerCase();
+    const cached = enhancedTermsCache.get(cacheKey);
+    if (cached) return cached;
+
+    const terms = searchTerms.toLowerCase().split(/[,\s]+/).filter(Boolean);
+    const enhancedTerms = new Set(terms);
+
+    // เพิ่มคำที่มักจะใช้ด้วยกัน
+    terms.forEach(term => {
+        const collocations = commonCollocations.get(term);
+        if (collocations) {
+            collocations.forEach(word => enhancedTerms.add(word));
+        }
+    });
+
+    // ดึงความหมายจาก cache หรือ database
+    const meanings = await Promise.all(
+        terms.map(async term => {
+            let meaning = getMeaningFromCache(term);
+            if (!meaning) {
+                const { data, error } = await supabase
+                    .from('word_meanings')
+                    .select('meaning')
+                    .eq('word', term)
+                    .single();
+
+                if (!error && data) {
+                    meaning = data.meaning;
+                    addMeaningToCache(term, meaning);
+                }
+            }
+            return meaning;
+        })
+    );
+
+    // เพิ่มคำที่เกี่ยวข้องจากความหมาย
+    meanings.filter(Boolean).forEach(meaning => {
+        const relatedWords = meaning.toLowerCase().split(/[,\s]+/).filter(Boolean);
+        relatedWords.forEach(word => enhancedTerms.add(word));
+    });
+
+    const result = Array.from(enhancedTerms);
+    enhancedTermsCache.set(cacheKey, result);
+    return result;
+};
+
+export const addTrainingData = async (originalTerms, enhancedTerms, confidence) => {
+    try {
+        const { data, error } = await supabase
+            .from('training_data')
+            .insert([{
+                original_terms: originalTerms,
+                enhanced_terms: enhancedTerms,
+                confidence
+            }]);
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Error adding training data:', error);
+        return null;
+    }
 };
 
 // ค้นหาคำที่เกี่ยวข้องด้วย Fuse.js แบบเพิ่มประสิทธิภาพ
-export const enhanceSearchTerms = async (searchTerm) => {
+export const enhanceSearchTermsWithFuse = async (searchTerm) => {
   const wordMeanings = await getWordMeanings(0, 500); // จำกัดข้อมูลเพื่อความเร็ว
   const fuse = new Fuse(wordMeanings, {
     keys: ['word', 'meaning'],

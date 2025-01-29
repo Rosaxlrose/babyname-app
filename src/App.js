@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
 import MatchForm from './components/MatchForm';
-import NameList from './components/์NameList';
+import NameList from './components/NameList';
 import AINameAnalysis from './components/AINameAnalysis';
 import TeamSection from './components/TeamSection';
 import TranslateName from './components/TranslateName';

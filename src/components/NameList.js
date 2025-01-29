@@ -13,6 +13,15 @@ const NameList = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState({
+    gender: 'all',
+    category: 'all',
+    tags: []
+  });
+  const [allTags, setAllTags] = useState([]);
+  const [showAllTags, setShowAllTags] = useState(false);
+  const [showTagsFilter, setShowTagsFilter] = useState(false);
+  const MAX_VISIBLE_TAGS = 10;
 
   // ข้ามการใช้สระนำหน้าชื่อ
   const thaiVowels = ['เ', 'แ', 'โ', 'ใ', 'ไ'];
@@ -21,6 +30,51 @@ const NameList = () => {
     fetchNames();
     setupBubbles();
   }, []);
+
+  useEffect(() => {
+    if (names.length > 0) {
+      // รวบรวมแท็กทั้งหมดที่มีในฐานข้อมูล
+      const tags = new Set();
+      names.forEach(name => {
+        name.tags.forEach(tag => tags.add(tag));
+      });
+      setAllTags(Array.from(tags).sort());
+
+      // กรองชื่อตามเงื่อนไข
+      let filtered = names;
+
+      // กรองตามการค้นหา
+      if (searchTerm) {
+        const fuseOptions = {
+          keys: ['name', 'meaning', 'tags'],
+          threshold: 0.4,
+          includeScore: true
+        };
+        const fuse = new Fuse(names, fuseOptions);
+        const results = fuse.search(searchTerm);
+        filtered = results.map(result => result.item);
+      }
+
+      // กรองตามเพศ
+      if (filters.gender !== 'all') {
+        filtered = filtered.filter(name => name.gender === filters.gender);
+      }
+
+      // กรองตามหมวด
+      if (filters.category !== 'all') {
+        filtered = filtered.filter(name => getCategoryChar(name.name) === filters.category);
+      }
+
+      // กรองตามแท็ก
+      if (filters.tags.length > 0) {
+        filtered = filtered.filter(name => 
+          filters.tags.every(tag => name.tags.includes(tag))
+        );
+      }
+
+      setFilteredNames(filtered);
+    }
+  }, [searchTerm, names, filters]);
 
   const setupBubbles = () => {
     const container = document.querySelector('.name-list-container');
@@ -42,24 +96,6 @@ const NameList = () => {
       }
     }
   };
-
-  useEffect(() => {
-    if (names.length > 0) {
-      const fuseOptions = {
-        keys: ['name', 'meaning', 'tags'],
-        threshold: 0.4,
-        includeScore: true
-      };
-      const fuse = new Fuse(names, fuseOptions);
-
-      if (searchTerm) {
-        const results = fuse.search(searchTerm);
-        setFilteredNames(results.map(result => result.item));
-      } else {
-        setFilteredNames(names);
-      }
-    }
-  }, [searchTerm, names]);
 
   const fetchNames = async () => {
     try {
@@ -176,6 +212,81 @@ const NameList = () => {
             className="name-list-search-icon"
           />
         </div>
+
+        <div className="filters-row">
+          <div className="filter-item">
+            <select
+              value={filters.gender}
+              onChange={(e) => setFilters(prev => ({ ...prev, gender: e.target.value }))}
+              className="form-select"
+            >
+              <option value="all">เพศ: ทั้งหมด</option>
+              <option value="ชาย">เพศ: ชาย</option>
+              <option value="หญิง">เพศ: หญิง</option>
+              <option value="ใช้ได้กับทั้งสอง">เพศ: ใช้ได้ทั้งสองเพศ</option>
+            </select>
+          </div>
+
+          <div className="filter-item">
+            <select
+              value={filters.category}
+              onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+              className="form-select"
+            >
+              <option value="all">หมวด: ทั้งหมด</option>
+              {Object.keys(categorizedNames).sort().map(category => (
+                <option key={category} value={category}>
+                  หมวด: {category}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-item">
+            <button 
+              onClick={() => setShowTagsFilter(!showTagsFilter)}
+              className="filter-toggle-btn"
+            >
+              <span>แท็ก {filters.tags.length > 0 && `(${filters.tags.length})`}</span>
+              <FontAwesomeIcon 
+                icon={showTagsFilter ? faChevronUp : faChevronDown}
+                className="ml-2"
+              />
+            </button>
+          </div>
+        </div>
+
+        {showTagsFilter && (
+          <div className="tags-dropdown">
+            <div className="tags-container">
+              {(showAllTags ? allTags : allTags.slice(0, MAX_VISIBLE_TAGS)).map(tag => (
+                <label key={tag} className="tag-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={filters.tags.includes(tag)}
+                    onChange={(e) => {
+                      setFilters(prev => ({
+                        ...prev,
+                        tags: e.target.checked
+                          ? [...prev.tags, tag]
+                          : prev.tags.filter(t => t !== tag)
+                      }));
+                    }}
+                  />
+                  <span className="ml-2">{tag}</span>
+                </label>
+              ))}
+              {allTags.length > MAX_VISIBLE_TAGS && (
+                <button
+                  onClick={() => setShowAllTags(!showAllTags)}
+                  className="show-more-tags"
+                >
+                  {showAllTags ? 'แสดงน้อยลง' : `ดูเพิ่มเติม (${allTags.length - MAX_VISIBLE_TAGS})`}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="text-center py-8">
