@@ -545,27 +545,35 @@ const MatchForm = () => {
                             ))}
                         </div>
 
-                        <div className="flex justify-center items-center gap-4 mt-6">
-                            <button 
-                                onClick={handlePrevPage}
-                                disabled={currentPage === 0}
-                                className={`btn btn-secondary ${currentPage === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                                <span className="star">⬅️</span>
-                                ก่อนหน้า
-                            </button>
-                            <span className="text-lg">
-                                หน้า {currentPage + 1} จาก {Math.ceil(allMatchedNames.length / ITEMS_PER_PAGE)}
-                            </span>
-                            <button 
-                                onClick={handleNextPage}
-                                disabled={(currentPage + 1) * ITEMS_PER_PAGE >= allMatchedNames.length}
-                                className={`btn btn-secondary ${(currentPage + 1) * ITEMS_PER_PAGE >= allMatchedNames.length ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                                <span className="star">➡️</span>
-                                ถัดไป
-                            </button>
-                        </div>
+                        <div className="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4 mt-6 w-full text-center">
+    {/* ปุ่มก่อนหน้า */}
+    <button 
+        onClick={handlePrevPage}
+        disabled={currentPage === 0}
+        className={`btn btn-secondary px-5 py-3 text-base sm:text-lg ${
+            currentPage === 0 ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+    >
+        ⬅️ ก่อนหน้า
+    </button>
+
+    {/* ข้อความแสดงหน้าปัจจุบัน (อยู่ตรงกลางในคอม) */}
+    <span className="text-base sm:text-lg font-medium sm:mx-4 mt-2 sm:mt-0 sm:order-none order-2">
+        หน้า {currentPage + 1} จาก {Math.ceil(allMatchedNames.length / ITEMS_PER_PAGE)}
+    </span>
+
+    {/* ปุ่มถัดไป */}
+    <button 
+        onClick={handleNextPage}
+        disabled={(currentPage + 1) * ITEMS_PER_PAGE >= allMatchedNames.length}
+        className={`btn btn-secondary px-5 py-3 text-base sm:text-lg ${
+            (currentPage + 1) * ITEMS_PER_PAGE >= allMatchedNames.length ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+    >
+        ถัดไป ➡️
+    </button>
+</div>
+
                     </>
                 )}
             </div>

@@ -110,9 +110,10 @@ const calculateNameScore = (name, predictedVector) => {
 
 const calculateBasicScore = (name, preferences, parentTags) => {
     let score = 7; // คะแนนเริ่มต้น
+    let matchCount = 0; // นับจำนวนการแมตช์
     
     if (!preferences?.trim() && (!parentTags || parentTags.length === 0)) {
-        return score;
+        return { score: 7, matchCount: 0 };
     }
 
     // ให้คะแนนตาม tags ที่ตรงกับพ่อแม่
@@ -120,6 +121,7 @@ const calculateBasicScore = (name, preferences, parentTags) => {
         name.tags.forEach(tag => {
             if (parentTags.includes(tag)) {
                 score += 2;
+                matchCount++;
             }
         });
     }
@@ -137,17 +139,23 @@ const calculateBasicScore = (name, preferences, parentTags) => {
             // ตรวจสอบใน tags
             if (tagsLower.some(tag => tag.includes(pref))) {
                 score += 2;
+                matchCount++;
             }
             
             // ตรวจสอบในความหมาย
             if (meaningLower.includes(pref)) {
                 score += 3;
+                matchCount++;
             }
         });
     }
 
-    return Math.min(15, score);
+    // ปรับคะแนนตามจำนวนการแมตช์
+    const normalizedScore = Math.min(15, Math.max(7, score - (matchCount === 0 ? 7 : 0)));
+    
+    return { score: normalizedScore, matchCount };
 };
+
 
 // Optimized Fuse instance creation with caching
 const fuseInstanceCache = new Map();
@@ -186,137 +194,65 @@ export const suggestNamesWithAI = async (preferences, parentTags, allNames) => {
         return [];
     }
 
-    // ถ้ามีแค่ความชอบ/ความหมาย ไม่ต้องคำนวณคะแนน
-    const onlyPreferences = preferenceWords.length > 0 && parentTags.length === 0;
-
-    // ใช้ Set เพื่อเพิ่มความเร็วในการค้นหา
-    const preferenceSet = new Set(preferenceWords);
-    const parentTagSet = new Set(parentTags);
-
-    // คำนวณคะแนนทุกชื่อพร้อมกัน
-    const scoredNames = allNames.map(name => {
-        if (onlyPreferences) {
-            // ถ้ามีแค่ความชอบ ให้ตรวจสอบแค่ว่าตรงกับความชอบหรือไม่
-            const nameTags = new Set(name.tags.map(tag => tag.toLowerCase()));
-            const meaningWords = name.meaning.toLowerCase().split(/[\s,]+/);
-            
-            const hasMatchingPreference = preferenceWords.some(pref => 
-                nameTags.has(pref) || meaningWords.some(word => word.includes(pref))
-            );
-
-            // ส่งคืนชื่อที่ตรงกับความชอบ พร้อมคะแนน null
-            return hasMatchingPreference ? { ...name, score: null } : null;
-        } else {
-            // คำนวณคะแนนตามปกติ
-            let score = 7; // คะแนนเริ่มต้น
-            let hasMatch = false;
-
-            // ตรวจสอบ tags ของพ่อแม่
-            const nameTags = new Set(name.tags.map(tag => tag.toLowerCase()));
-            for (const tag of nameTags) {
-                if (parentTagSet.has(tag)) {
-                    score += 2;
-                    hasMatch = true;
-                }
-            }
-
-            // ตรวจสอบความชอบใน tags
-            for (const tag of nameTags) {
-                if (preferenceSet.has(tag)) {
-                    score += 2;
-                    hasMatch = true;
-                }
-            }
-
-            // ตรวจสอบความชอบในความหมาย
-            const meaningWords = name.meaning.toLowerCase().split(/[\s,]+/);
-            for (const pref of preferenceSet) {
-                if (meaningWords.some(word => word.includes(pref))) {
-                    score += 3;
-                    hasMatch = true;
-                }
-            }
-
-            // คืนค่า null ถ้าไม่มีการตรงกับเงื่อนไขใดๆ
-            return hasMatch ? { ...name, score } : null;
-        }
-    }).filter(Boolean); // กรองเอาแค่ชื่อที่ไม่เป็น null
-
-    // ถ้าไม่มีชื่อที่ตรงเงื่อนไข
-    if (scoredNames.length === 0) {
-        return [];
+    // เริ่มการเทรนโมเดลแบบ async
+    let modelPromise;
+    if (preferenceWords.length > 0) {
+        modelPromise = trainNameModel(allNames).catch(err => {
+            console.warn('Model training failed, falling back to basic scoring:', err);
+            return null;
+        });
     }
 
-    // กรณีมีแค่ความชอบ ส่งคืนทุกชื่อที่ตรงกับความชอบ
-    if (onlyPreferences) {
-        return scoredNames;
+    // คำนวณคะแนนทุกชื่อพร้อมกัน
+    const scoredNames = await Promise.all(allNames.map(async name => {
+        // คำนวณคะแนนพื้นฐาน
+        const { score: basicScore, matchCount } = calculateBasicScore(name, preferences, parentTags);
+        
+        // ถ้าไม่มีการแมตช์เลย ไม่ต้องรวมในผลลัพธ์
+        if (matchCount === 0 && basicScore <= 7) {
+            return null;
+        }
+
+        let finalScore = basicScore;
+
+        // เพิ่มคะแนนจากโมเดล AI ถ้ามี
+        try {
+            const model = await modelPromise;
+            if (model) {
+                const inputVector = [
+                    ...textToVector(name.meaning, 25),
+                    ...name.tags.slice(0, 2).map(tag => textToVector(tag, 12)).flat()
+                ];
+                while (inputVector.length < 50) inputVector.push(0);
+
+                const prediction = tf.tidy(() => {
+                    const input = tf.tensor2d([inputVector]);
+                    const output = model.predict(input);
+                    return output.dataSync();
+                });
+
+                const aiScore = calculateNameScore(name, Array.from(prediction));
+                // ผสมคะแนน AI กับคะแนนพื้นฐาน (70% คะแนนพื้นฐาน, 30% คะแนน AI)
+                finalScore = Math.round((basicScore * 0.7) + (aiScore * 0.3));
+            }
+        } catch (error) {
+            console.warn('Error calculating AI score:', error);
+            // ถ้าเกิดข้อผิดพลาด ใช้คะแนนพื้นฐานอย่างเดียว
+        }
+
+        return { ...name, score: Math.min(15, Math.max(7, finalScore)) };
+    }));
+
+    // กรองเอาแค่ชื่อที่ไม่เป็น null และมีคะแนนมากกว่า 7
+    const validNames = scoredNames.filter(name => name && name.score > 8);
+
+    // ถ้าไม่มีชื่อที่เหมาะสม
+    if (validNames.length === 0) {
+        return [];
     }
 
     // เรียงลำดับตามคะแนน
-    const sortedNames = scoredNames.sort((a, b) => b.score - a.score);
-
-    // หาชื่อที่มีคะแนนมากกว่า 10
-    const highScoreNames = sortedNames.filter(name => name.score >= 10);
-
-    // ถ้ามีชื่อที่คะแนนมากกว่า 10 ให้แสดงเฉพาะชื่อเหล่านั้น
-    if (highScoreNames.length > 0) {
-        return highScoreNames;
-    }
-
-    // ถ้าไม่มีชื่อที่คะแนนมากกว่า 10 ให้หาคะแนนสูงสุด
-    const maxScore = sortedNames[0].score;
-    
-    // แสดงชื่อที่มีคะแนนเท่ากับคะแนนสูงสุด
-    return sortedNames.filter(name => name.score === maxScore);
-};
-
-export const recommendNames = async (preferences, names) => {
-    if (!preferences || !names || names.length === 0) {
-        return [];
-    }
-
-    try {
-        const fuse = getFuseInstance(names);
-        const results = fuse.search(preferences);
-        return results.map(result => ({
-            ...result.item,
-            score: normalizeScore(1 - result.score, 1)
-        }));
-    } catch (error) {
-        console.error('Error recommending names:', error);
-        throw error;
-    }
-};
-
-export const matchNames = async (name, type, names) => {
-    if (!name || !names || names.length === 0) {
-        return [];
-    }
-
-    try {
-        const fuse = getFuseInstance(names);
-        const results = fuse.search(name);
-        
-        return results
-            .filter(result => {
-                if (!result.item.name) return false;
-                if (result.item.name.toLowerCase() === name.toLowerCase()) {
-                    return false;
-                }
-                
-                if (type === 'twins') {
-                    return result.item.name[0].toLowerCase() === name[0].toLowerCase();
-                }
-                return true;
-            })
-            .map(result => ({
-                ...result.item,
-                score: normalizeScore(1 - result.score, 1)
-            }));
-    } catch (error) {
-        console.error('Error matching names:', error);
-        throw error;
-    }
+    return validNames.sort((a, b) => b.score - a.score);
 };
 
 export const addNewName = async (nameData) => {

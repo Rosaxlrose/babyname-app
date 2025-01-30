@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import TeamMember from './TeamMember';
 import Member1 from '../images/member1.jpg';
+import Member2 from '../images/member2.jpg';
 import Member3 from '../images/member3.jpg';
 import Member4 from '../images/member4.jpg';
 import Member5 from '../images/member5.jpg';
@@ -22,8 +23,8 @@ const TeamSection = () => {
     },
     {
       name: "Tawanchai Srilert",
-      role: "Lead Developer",
-      image: Member1,
+      role: "Frontend Developer\nDecision Tree",
+      image: Member2 ,
       social: {
         twitter: "https://twitter.com",
         facebook: "https://facebook.com",
@@ -32,7 +33,7 @@ const TeamSection = () => {
     },
     {
       name: "Poonyapat Wongsatit",
-      role: "Product Designer",
+      role: "Ai Developer\nNeural Network",
       image: Member3,
       social: {
         github: "https://github.com/thanakorn768",
@@ -42,7 +43,7 @@ const TeamSection = () => {
     },
     {
       name: "Akethanick  Rungsawang",
-      role: "Back-End Developer\nDatabase Developer",
+      role: "Back-End Developer\nFuzzy Search",
       image: Member4,
       social: {
         github: "https://github.com/aekthanick",
@@ -52,7 +53,7 @@ const TeamSection = () => {
     },
     {
       name: "Anut Soratyatorn",
-      role: "Back-End Developer\nDatabase Administrator",
+      role: "Database Administrator\nFuzzy Search",
       image: Member5,
       social: {
         github: "https://github.com/thanakorn768",
@@ -62,7 +63,7 @@ const TeamSection = () => {
     },
     {
       name: "Thanakorn Thitpaphong",
-      role: "Front-End Developer",
+      role: "Front-End Developer\nDecision Tree",
       image: Member6,
       social: {
         github: "https://github.com/thanakorn768",
