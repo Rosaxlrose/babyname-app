@@ -6,15 +6,12 @@ const NameMeaningResult = ({ name, meaning, tags, gender }) => {
   const [previousName, setPreviousName] = useState('');
 
   useEffect(() => {
-    // Reset animation when either name or meaning changes
     setKey(prev => prev + 1);
     setPreviousName(name || '');
   }, [name, meaning]);
 
-  // Return null if there's no meaning
   if (!meaning) return null;
 
-  // Ensure we always have a name value
   const displayName = name || previousName || '';
 
   return (

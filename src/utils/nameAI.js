@@ -1,23 +1,24 @@
-import { pipeline } from '@huggingface/transformers';
 import Fuse from 'fuse.js';
 import { supabase } from '../supabaseClient';
 import * as tf from '@tensorflow/tfjs';
 
-// Cache for trained models
+// แคชสำหรับเก็บข้อมูล
 const modelCache = new Map();
-const MODEL_CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
+const MODEL_CACHE_DURATION = 1000 * 60 * 30; // 30 นาที
 
+// แปลงข้อความเป็นเวกเตอร์
 const textToVector = (text, length) => {
     if (!text) return new Array(length).fill(0);
     const truncatedText = text.slice(0, length);
     const vector = new Array(length).fill(0);
-    
+
     for (let i = 0; i < truncatedText.length; i++) {
         vector[i] = truncatedText.charCodeAt(i) % 256;
     }
     return vector;
 };
 
+// ดึงโมเดลจากแคช
 const getModelFromCache = (cacheKey) => {
     const cached = modelCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < MODEL_CACHE_DURATION) {
@@ -27,6 +28,7 @@ const getModelFromCache = (cacheKey) => {
     return null;
 };
 
+// เทรนโมเดล Neural Network
 const trainNameModel = async (existingNames) => {
     try {
         const cacheKey = JSON.stringify(existingNames.map(n => n.id).sort());
@@ -37,7 +39,7 @@ const trainNameModel = async (existingNames) => {
 
         const inputSize = 50;
         const outputSize = 50;
-        
+
         const trainingData = existingNames.map(name => ({
             input: [
                 ...textToVector(name.meaning, 25),
@@ -47,11 +49,7 @@ const trainNameModel = async (existingNames) => {
         }));
 
         const model = tf.sequential();
-        model.add(tf.layers.dense({ 
-            units: 64,
-            activation: 'relu', 
-            inputShape: [inputSize] 
-        }));
+        model.add(tf.layers.dense({ units: 64, activation: 'relu', inputShape: [inputSize] }));
         model.add(tf.layers.dropout(0.2));
         model.add(tf.layers.dense({ units: 32, activation: 'relu' }));
         model.add(tf.layers.dropout(0.1));
@@ -67,7 +65,7 @@ const trainNameModel = async (existingNames) => {
             while (input.length < inputSize) input.push(0);
             return input.slice(0, inputSize);
         }));
-        
+
         const ys = tf.tensor2d(trainingData.map(d => {
             const output = d.output;
             while (output.length < outputSize) output.push(0);
@@ -81,10 +79,7 @@ const trainNameModel = async (existingNames) => {
             validationSplit: 0.1
         });
 
-        modelCache.set(cacheKey, {
-            model,
-            timestamp: Date.now()
-        });
+        modelCache.set(cacheKey, { model, timestamp: Date.now() });
 
         return model;
     } catch (error) {
@@ -93,168 +88,115 @@ const trainNameModel = async (existingNames) => {
     }
 };
 
-const normalizeScore = (score, max) => {
-    if (max === 0) return 7; // Default middle score
-    return Math.round((score / max) * 15);
-};
+// คำนวณคะแนนพื้นฐาน
+const calculateBaseScore = (name, preferences, parentTags) => {
+    let score = 7;
 
-const calculateNameScore = (name, predictedVector) => {
-    const nameVector = textToVector(name.name + ' ' + name.meaning, 50);
-    return tf.tidy(() => {
-        const similarity = tf.tensor1d(nameVector)
-            .dot(tf.tensor1d(predictedVector))
-            .dataSync()[0];
-        return similarity * 10; // Scale to 0-10
-    });
-};
-
-const calculateBasicScore = (name, preferences, parentTags) => {
-    let score = 7; // คะแนนเริ่มต้น
-    let matchCount = 0; // นับจำนวนการแมตช์
-    
-    if (!preferences?.trim() && (!parentTags || parentTags.length === 0)) {
-        return { score: 7, matchCount: 0 };
-    }
-
-    // ให้คะแนนตาม tags ที่ตรงกับพ่อแม่
     if (parentTags?.length > 0) {
-        name.tags.forEach(tag => {
-            if (parentTags.includes(tag)) {
-                score += 2;
-                matchCount++;
-            }
-        });
+        const parentMatches = name.tags.filter(tag => parentTags.includes(tag)).length;
+        score += parentMatches * 3;  // เพิ่มน้ำหนักของ parentTags
     }
 
-    // ให้คะแนนตามความชอบและความหมาย
     if (preferences?.trim()) {
-        const prefsLower = preferences.toLowerCase();
-        const meaningLower = name.meaning.toLowerCase();
-        const tagsLower = name.tags.map(t => t.toLowerCase());
-        
-        // แยกคำจากความชอบ
-        const prefWords = prefsLower.split(/[,\s]+/).filter(Boolean);
-        
-        prefWords.forEach(pref => {
-            // ตรวจสอบใน tags
-            if (tagsLower.some(tag => tag.includes(pref))) {
-                score += 2;
-                matchCount++;
-            }
-            
-            // ตรวจสอบในความหมาย
-            if (meaningLower.includes(pref)) {
-                score += 3;
-                matchCount++;
-            }
-        });
+        const prefWords = preferences.toLowerCase().split(/[,\s]+/).filter(Boolean);
+        const meaningMatches = prefWords.filter(word => name.meaning.toLowerCase().includes(word)).length;
+        const tagMatches = prefWords.filter(word => name.tags.some(tag => tag.toLowerCase().includes(word))).length;
+
+        score += Math.min(2, meaningMatches + tagMatches);  // ลด max preference bonus
     }
 
-    // ปรับคะแนนตามจำนวนการแมตช์
-    const normalizedScore = Math.min(15, Math.max(7, score - (matchCount === 0 ? 7 : 0)));
-    
-    return { score: normalizedScore, matchCount };
+    return Math.min(15, Math.max(5, score));
 };
 
-
-// Optimized Fuse instance creation with caching
-const fuseInstanceCache = new Map();
-const FUSE_CACHE_DURATION = 1000 * 60 * 5; // 5 minutes
-
-const getFuseInstance = (names) => {
-    const cacheKey = JSON.stringify(names.map(n => n.id).sort());
-    const cached = fuseInstanceCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < FUSE_CACHE_DURATION) {
-        return cached.fuse;
-    }
-
-    const fuse = new Fuse(names, {
-        keys: ['name', 'meaning', 'tags'],
-        threshold: 0.4,
-        includeScore: true,
-        useExtendedSearch: true
-    });
-
-    fuseInstanceCache.set(cacheKey, {
-        fuse,
-        timestamp: Date.now()
-    });
-
-    return fuse;
-};
-
+// ฟังก์ชันหลักสำหรับแนะนำชื่อ
 export const suggestNamesWithAI = async (preferences, parentTags, allNames) => {
-    // แยกความชอบเป็นคำๆ และกำจัดช่องว่าง
+    const fuse = new Fuse(allNames, {
+        keys: ['name', 'meaning', 'tags'],
+        threshold: 0.3, // ลด threshold เพื่อเพิ่มความแม่นยำ
+        includeScore: true,
+        useExtendedSearch: true,
+        getFn: (obj, path) => (path === 'tags' ? obj.tags.join(' ') : obj[path])
+    });
+
     const preferenceWords = preferences
         ? preferences.split(',').map(word => word.trim().toLowerCase()).filter(Boolean)
         : [];
 
-    // ถ้าไม่มีเงื่อนไขใดๆ ให้คืนค่าว่าง
-    if (preferenceWords.length === 0 && parentTags.length === 0) {
-        return [];
-    }
-
-    // เริ่มการเทรนโมเดลแบบ async
-    let modelPromise;
+    let model = null;
     if (preferenceWords.length > 0) {
-        modelPromise = trainNameModel(allNames).catch(err => {
-            console.warn('Model training failed, falling back to basic scoring:', err);
-            return null;
-        });
+        try {
+            model = await trainNameModel(allNames);
+        } catch (error) {
+            console.warn('Model training failed:', error);
+        }
     }
 
-    // คำนวณคะแนนทุกชื่อพร้อมกัน
-    const scoredNames = await Promise.all(allNames.map(async name => {
-        // คำนวณคะแนนพื้นฐาน
-        const { score: basicScore, matchCount } = calculateBasicScore(name, preferences, parentTags);
-        
-        // ถ้าไม่มีการแมตช์เลย ไม่ต้องรวมในผลลัพธ์
-        if (matchCount === 0 && basicScore <= 7) {
-            return null;
-        }
+    const fuseResults = fuse.search(preferenceWords.join(' | '));
+    const fuseMap = {};
+    fuseResults.forEach(result => {
+        const normalizedScore = Math.max(5, Math.min(10, (1 - result.score) * 10));
+        fuseMap[result.item.name] = { item: result.item, fuseScore: Math.round(normalizedScore) };
+    });
 
-        let finalScore = basicScore;
+    let matches = allNames.map(name => ({
+        ...name,
+        fuseScore: fuseMap[name.name]?.fuseScore ?? 7
+    }));
 
-        // เพิ่มคะแนนจากโมเดล AI ถ้ามี
-        try {
-            const model = await modelPromise;
-            if (model) {
+    const scoredNames = await Promise.all(matches.map(async match => {
+        const baseScore = calculateBaseScore(match, preferences, parentTags);
+
+        let aiScore = 7;
+        if (model) {
+            try {
                 const inputVector = [
-                    ...textToVector(name.meaning, 25),
-                    ...name.tags.slice(0, 2).map(tag => textToVector(tag, 12)).flat()
+                    ...textToVector(match.meaning, 25),
+                    ...match.tags.slice(0, 2).map(tag => textToVector(tag, 12)).flat()
                 ];
                 while (inputVector.length < 50) inputVector.push(0);
 
                 const prediction = tf.tidy(() => {
                     const input = tf.tensor2d([inputVector]);
-                    const output = model.predict(input);
-                    return output.dataSync();
+                    return model.predict(input).dataSync();
                 });
 
-                const aiScore = calculateNameScore(name, Array.from(prediction));
-                // ผสมคะแนน AI กับคะแนนพื้นฐาน (70% คะแนนพื้นฐาน, 30% คะแนน AI)
-                finalScore = Math.round((basicScore * 0.7) + (aiScore * 0.3));
+                const similarity = tf.tidy(() => {
+                    const nameVector = textToVector(match.name + ' ' + match.meaning, 50);
+                    return tf.tensor1d(nameVector).dot(tf.tensor1d(Array.from(prediction))).dataSync()[0];
+                });
+
+                aiScore = Math.max(5, Math.min(10, Math.round(5 + (similarity * 5))));
+            } catch (error) {
+                console.warn('Error calculating AI score:', error);
             }
-        } catch (error) {
-            console.warn('Error calculating AI score:', error);
-            // ถ้าเกิดข้อผิดพลาด ใช้คะแนนพื้นฐานอย่างเดียว
         }
 
-        return { ...name, score: Math.min(15, Math.max(7, finalScore)) };
+        const finalScore = Math.round(
+            (baseScore * 0.6) +  
+            (match.fuseScore * 0.2) +  
+            (aiScore * 0.2)  
+        );
+
+        return {
+            ...match,
+            score: Math.min(15, Math.max(5, finalScore)),
+            matchDetails: {
+                baseScore,
+                fuseScore: match.fuseScore,
+                aiScore,
+                finalScore
+            }
+        };
     }));
 
-    // กรองเอาแค่ชื่อที่ไม่เป็น null และมีคะแนนมากกว่า 7
-    const validNames = scoredNames.filter(name => name && name.score > 8);
-
-    // ถ้าไม่มีชื่อที่เหมาะสม
-    if (validNames.length === 0) {
-        return [];
-    }
-
-    // เรียงลำดับตามคะแนน
-    return validNames.sort((a, b) => b.score - a.score);
+    return scoredNames
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 25)
+        .map(name => ({ ...name, score: Math.round(name.score) }));
 };
 
+
+// เพิ่มชื่อใหม่เข้าระบบ
 export const addNewName = async (nameData) => {
     try {
         const { data: existingName } = await supabase
@@ -267,10 +209,7 @@ export const addNewName = async (nameData) => {
             throw new Error('ชื่อนี้มีอยู่ในระบบแล้ว');
         }
 
-        const { data, error } = await supabase
-            .from('names')
-            .insert([nameData])
-            .select();
+        const { data, error } = await supabase.from('names').insert([nameData]).select();
 
         if (error) throw error;
         return data[0];

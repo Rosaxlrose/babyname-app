@@ -12,7 +12,6 @@ const TranslateName = () => {
   const [previousSearch, setPreviousSearch] = useState("");
 
   useEffect(() => {
-    // Add floating bubbles
     const container = document.querySelector('.translate-name-container');
     if (container) {
       for (let i = 0; i < 6; i++) {
@@ -134,13 +133,13 @@ const TranslateName = () => {
         setSearchResult(null);
         setTimeout(() => setSearchResult({
           ...parsedResult,
-          name: name // Ensure name is always set
+          name: name 
         }), 100);
         setIsLoading(false);
         return;
       }
 
-      // Check database
+      // เช็คจากฐานข้อมูลก่อน
       const { data: existingName, error: fetchError } = await supabase
         .from("names")
         .select("name, meaning, gender, tags")
@@ -149,7 +148,7 @@ const TranslateName = () => {
 
       if (!fetchError && existingName) {
         const result = {
-          name: name, // Always use the searched name
+          name: name, 
           meaning: existingName.meaning,
           tags: existingName.tags || [],
           gender: existingName.gender || '',
